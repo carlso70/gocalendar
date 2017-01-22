@@ -1,4 +1,4 @@
-[![CircleCI](https://circleci.com/gh/carlso70/gocalendar.svg?style=sheild&circle-token:=circle-token)](https://circleci.com/gh/carlso70/gocalendar)
+[![CircleCI](https://circleci.com/gh/carlso70/gocalendar.svg?style=svg)](https://circleci.com/gh/carlso70/gocalendar)
 
 ## Synopsis
 
