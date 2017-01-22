@@ -144,31 +144,38 @@ func main() {
 			Aliases: []string{"r"},
 			Usage:   "remove an appointment on your calendar",
 			Action: func(c *cli.Context) error {
-				// Refer to the Go quickstart on how to setup the environment:
-				// https://developers.google.com/google-apps/calendar/quickstart/go
-				// Change the scope to calendar.CalendarScope and delete any stored credentials.
 
 				calendarId := "primary"
 				fmt.Println("Possible match(es) to search query", c.Args().First(), ":")
 				var index int = 0
 				var pageToken string = ""
+				// Map of index -> eventId used for deleting from calendar
+				idMap := make(map[int]string)
 				for {
 					eventsList, _ := srv.Events.List(calendarId).Q(c.Args().First()).PageToken(pageToken).Do()
 					for _, foundEvent := range eventsList.Items {
 						index = index + 1
-						fmt.Println(foundEvent.Summary)
+						fmt.Println(index, ": ", foundEvent.Summary)
+						idMap[index] = foundEvent.Id
 					}
 					if pageToken == "" {
 						break
 					}
 				}
 
-				// err := srv.Events.Delete(calendarId, delEvent).Do()
-				err = nil
-				if err != nil {
-					log.Fatalf("Unable to delete event. %v\n", err)
+				var selectedIndex int = -1
+				fmt.Print("Enter index of event you wish to remove: ")
+				fmt.Scanf("%d", &selectedIndex)
+
+				if idMap[selectedIndex] != "" {
+					err := srv.Events.Delete(calendarId, idMap[selectedIndex]).Do()
+					err = nil
+					if err != nil {
+						log.Fatalf("Unable to delete event. %v\n", err)
+					}
+					fmt.Printf("Event deleted: %s\n", c.Args().First())
+
 				}
-				fmt.Printf("Event deleted: %s\n", c.Args().First())
 				return nil
 			},
 		},
