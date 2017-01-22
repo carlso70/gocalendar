@@ -102,7 +102,7 @@ func main() {
 		log.Fatalf("Unable to read client secret file: %v", err)
 	}
 
-	config, err := google.ConfigFromJSON(b, calendar.CalendarReadonlyScope)
+	config, err := google.ConfigFromJSON(b, calendar.CalendarScope)
 	if err != nil {
 		log.Fatalf("Unable to parse client secret file to config: %v", err)
 	}
@@ -148,31 +148,27 @@ func main() {
 				// https://developers.google.com/google-apps/calendar/quickstart/go
 				// Change the scope to calendar.CalendarScope and delete any stored credentials.
 
-				event := &calendar.Event{
-					Summary:     "Google I/O 2015",
-					Location:    "800 Howard St., San Francisco, CA 94103",
-					Description: "A chance to hear more about Google's developer products.",
-					Start: &calendar.EventDateTime{
-						DateTime: "2015-05-28T09:00:00-07:00",
-						TimeZone: "America/Los_Angeles",
-					},
-					End: &calendar.EventDateTime{
-						DateTime: "2015-05-28T17:00:00-07:00",
-						TimeZone: "America/Los_Angeles",
-					},
-					Recurrence: []string{"RRULE:FREQ=DAILY;COUNT=2"},
-					Attendees: []*calendar.EventAttendee{
-						&calendar.EventAttendee{Email: "lpage@example.com"},
-						&calendar.EventAttendee{Email: "sbrin@example.com"},
-					},
+				calendarId := "primary"
+				fmt.Println("Possible match(es) to search query", c.Args().First(), ":")
+				var index int = 0
+				var pageToken string = ""
+				for {
+					eventsList, _ := srv.Events.List(calendarId).Q(c.Args().First()).PageToken(pageToken).Do()
+					for _, foundEvent := range eventsList.Items {
+						index = index + 1
+						fmt.Println(foundEvent.Summary)
+					}
+					if pageToken == "" {
+						break
+					}
 				}
 
-				calendarId := "primary"
-				event, err = srv.Events.Insert(calendarId, event).Do()
+				// err := srv.Events.Delete(calendarId, delEvent).Do()
+				err = nil
 				if err != nil {
-					log.Fatalf("Unable to create event. %v\n", err)
+					log.Fatalf("Unable to delete event. %v\n", err)
 				}
-				fmt.Printf("Event created: %s\n", event.HtmlLink)
+				fmt.Printf("Event deleted: %s\n", c.Args().First())
 				return nil
 			},
 		},
