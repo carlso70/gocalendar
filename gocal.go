@@ -169,7 +169,6 @@ func main() {
 
 				if idMap[selectedIndex] != "" {
 					err := srv.Events.Delete(calendarId, idMap[selectedIndex]).Do()
-					err = nil
 					if err != nil {
 						log.Fatalf("Unable to delete event. %v\n", err)
 					}
