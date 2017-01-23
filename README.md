@@ -1,33 +1,52 @@
+CircleCI test status
+
 [![CircleCI](https://circleci.com/gh/carlso70/gocalendar.svg?style=svg)](https://circleci.com/gh/carlso70/gocalendar)
 
 ## Synopsis
 
 Add Google Calendar events via the command line with this application
 
-## Code Example
-
-Show what the library does as concisely as possible, developers should be able to figure out **how** your project solves their problem by looking at the code example. Make sure the API you are showing off is obvious, and that your code is short and concise.
-
 ## Motivation
 
-A short description of the motivation behind the creation and maintenance of the project. This should explain **why** the project exists.
+We felt compelled to implement a command-line interface of Google Calendar in order to expand our skills using Go and Google API.
 
 ## Installation
 
-Provide code examples and explanations of how to get the project.
+### Prerequisites
+Requires Go to be installed. This can usually be done through your package manager. See [official documentation](https://golang.org/doc/install) for more information.
+
+In order to use the commands, gocalendar will need to be given permission to manage your Google Calendar.
+
+At the moment gocalendar requires permission, a web link will show, at which there is a prompt for permission verification. After verification, a code appears that needs to be pasted back into the program.
+
+The program should continue seamlessly after permissions are set.
+
+### Package Install
+If `$GOPATH` is set:
+
+```bash
+go get github.com/carlso70/gocalendar
+cd $GOPATH/src/github.com/carlso70/gocalendar
+go install gocal.go
+```
+
+Also, make sure `$PATH` contains `$GOPATH/bin` in order to call the program from outside `$GOPATH/bin`.
 
 ## API Reference
 
-Depending on the size of the project, if it is small and simple enough the reference docs can be added to the README. For medium size to larger projects it is important to at least provide a link to where the API reference docs live.
+Official Google Calendar API Go Quickstartl: [https://developers.google.com/google-apps/calendar/quickstart/go](https://developers.google.com/google-apps/calendar/quickstart/go)
+
+Official Google Calendar API Reference: [https://developers.google.com/google-apps/calendar/v3/reference/](https://developers.google.com/google-apps/calendar/v3/reference/)
 
 ## Tests
 
-Describe and show how to run the tests with code examples.
+CircleCI tests are automatically run. [View test details here.](https://circleci.com/gh/carlso70/gocalendar)
 
 ## Contributors
 
-Let people know how they can dive into the project, include important links to things like issue trackers, irc, twitter accounts if applicable.
+Currently, carlso70 and kroppt are the main contributors and original creators of the project.
 
-## License
+Feel free to fork and suggest some changes. It's always welcome.
 
-A short snippet describing the license (MIT, Apache, etc.)
+Issues will be handled at our discretion, most likely when we have free time.
+
