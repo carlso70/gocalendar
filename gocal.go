@@ -3,11 +3,6 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"golang.org/x/net/context"
-	"golang.org/x/oauth2"
-	"golang.org/x/oauth2/google"
-	"google.golang.org/api/calendar/v3"
-	"gopkg.in/urfave/cli.v1"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -16,6 +11,13 @@ import (
 	"os/user"
 	"path/filepath"
 	"time"
+
+	calUtil "github.com/carlso70/gocalendar/calendarutils"
+	"golang.org/x/net/context"
+	"golang.org/x/oauth2"
+	"golang.org/x/oauth2/google"
+	"google.golang.org/api/calendar/v3"
+	"gopkg.in/urfave/cli.v1"
 )
 
 // getClient uses a Context and Config to retrieve a Token
@@ -183,32 +185,37 @@ func main() {
 			Aliases: []string{"a"},
 			Usage:   "add an appointment on your calendar",
 			Action: func(c *cli.Context) error {
+				var calEntry calUtil.CalendarEntry
+				fmt.Print("Enter Event Summary: ")
+				fmt.Scanf("%s\n", &calEntry.Summary)
+				fmt.Print("Enter Event Location: ")
+				fmt.Scanf("%s\n", &calEntry.Location)
 
-				event := &calendar.Event{
-					Summary:     "Testing",
-					Location:    "800 Howard St., San Francisco, CA 94103",
-					Description: "A chance to hear more about Google's developer products.",
-					Start: &calendar.EventDateTime{
-						DateTime: "2015-05-28T09:00:00-07:00",
-						TimeZone: "America/Los_Angeles",
-					},
-					End: &calendar.EventDateTime{
-						DateTime: "2015-05-28T17:00:00-07:00",
-						TimeZone: "America/Los_Angeles",
-					},
-					Recurrence: []string{"RRULE:FREQ=DAILY;COUNT=2"},
-					Attendees: []*calendar.EventAttendee{
-						&calendar.EventAttendee{Email: "lpage@example.com"},
-						&calendar.EventAttendee{Email: "sbrin@example.com"},
-					},
-				}
+				var date string = ""
+				var time string = ""
+				fmt.Print("Enter Event Start Date (YYYY-MM-DD): ")
+				fmt.Scanf("%s\n", &date)
+				fmt.Print("Enter Event Start Time(HH:mm:ss): ")
+				fmt.Scanf("%s\n", &time)
+				// TODO figure out what Z is in format YYYY-MM-DDTHH:mm:ssZ for now use '-07:00'
+				calEntry.StartDateTime = date + "T" + time + "-07:00"
 
-				calendarId := "primary"
-				event, err = srv.Events.Insert(calendarId, event).Do()
+				fmt.Print("Enter Event End Date (YYYY-MM-DD): ")
+				fmt.Scanf("%s\n", &date)
+				fmt.Print("Enter Event End Time(HH:mm:ss): ")
+				fmt.Scanf("%s\n", &time)
+				calEntry.EndDateTime = date + "T" + time + "-07:00"
+
+				fmt.Print("Enter Reccurence (press enter to ignore): ")
+				fmt.Scanf("%s\n", &calEntry.Recurrence)
+
+				event, err := calUtil.AddCalendarEntry(calEntry, "primary", srv)
+
 				if err != nil {
 					log.Fatalf("Unable to create event. %v\n", err)
 				}
-				fmt.Printf("Event created: %s\n", event.HtmlLink)
+
+				fmt.Printf("Event created link to event : %s\n", event.HtmlLink)
 				return nil
 			},
 		},
