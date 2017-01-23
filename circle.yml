@@ -4,7 +4,7 @@ machine:
 
 dependencies:
   pre:
-    - go get github.com/carlso70/gocalendar
+    - go get github.com/carlso70/gocalendar/...
 
   override:
     - mkdir -p "$GOPATH/src/$IMPORT_PATH"
