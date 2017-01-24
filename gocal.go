@@ -197,14 +197,13 @@ func main() {
 				fmt.Scanf("%s\n", &date)
 				fmt.Print("Enter Event Start Time(HH:mm:ss): ")
 				fmt.Scanf("%s\n", &time)
-				// TODO figure out what Z is in format YYYY-MM-DDTHH:mm:ssZ for now use '-07:00'
-				calEntry.StartDateTime = date + "T" + time + "-07:00"
+				calEntry.StartDateTime = date + "T" + time + "z"
 
 				fmt.Print("Enter Event End Date (YYYY-MM-DD): ")
 				fmt.Scanf("%s\n", &date)
 				fmt.Print("Enter Event End Time(HH:mm:ss): ")
 				fmt.Scanf("%s\n", &time)
-				calEntry.EndDateTime = date + "T" + time + "-07:00"
+				calEntry.EndDateTime = date + "T" + time + "Z"
 
 				fmt.Print("Enter Reccurence (press enter to ignore): ")
 				fmt.Scanf("%s\n", &calEntry.Recurrence)
