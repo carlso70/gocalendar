@@ -99,7 +99,8 @@ func main() {
 
 	ctx := context.Background()
 
-	b, err := ioutil.ReadFile("client_secret.json")
+	var secretPath string = os.Getenv("GOPATH") + "/src/github.com/carlso70/gocalendar/client_secret.json"
+	b, err := ioutil.ReadFile(secretPath)
 	if err != nil {
 		log.Fatalf("Unable to read client secret file: %v", err)
 	}
