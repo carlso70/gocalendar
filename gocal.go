@@ -170,12 +170,6 @@ func main() {
 				fmt.Scanf("%d", &selectedIndex)
 
 				if idMap[selectedIndex] != "" {
-					err := srv.Events.Delete(calendarId, idMap[selectedIndex]).Do()
-					if err != nil {
-						log.Fatalf("Unable to delete event. %v\n", err)
-					}
-					fmt.Printf("Event deleted: %s\n", c.Args().First())
-
 				}
 				return nil
 			},
@@ -195,7 +189,7 @@ func main() {
 				var time string = ""
 				fmt.Print("Enter Event Start Date (YYYY-MM-DD): ")
 				fmt.Scanf("%s\n", &date)
-				fmt.Print("Enter Event Start Time(HH:mm:ss): ")
+				fmt.Print("Enter Event Start Time(HH:mm:ss) (Military Time): ")
 				fmt.Scanf("%s\n", &time)
 				calEntry.StartDateTime = date + "T" + time + "z"
 
