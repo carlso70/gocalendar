@@ -188,27 +188,28 @@ func main() {
 			Usage:   "add an appointment on your calendar",
 			Action: func(c *cli.Context) error {
 				var calEntry calUtil.CalendarEntry
+				reader := bufio.NewReader(os.Stdin)
 				fmt.Print("Enter Event Summary: ")
-				fmt.Scanf("%s\n", &calEntry.Summary)
+				calEntry.Summary, _ = reader.ReadString('\n')
 				fmt.Print("Enter Event Location: ")
-				fmt.Scanf("%s\n", &calEntry.Location)
+				calEntry.Location, _ = reader.ReadString('\n')
 
 				var date string = ""
 				var time string = ""
 				fmt.Print("Enter Event Start Date (YYYY-MM-DD): ")
-				fmt.Scanf("%s\n", &date)
+				date, _ = reader.ReadString('\n')
 				fmt.Print("Enter Event Start Time(HH:mm:ss) (Military Time): ")
-				fmt.Scanf("%s\n", &time)
+				time, _ = reader.ReadString('\n')
 				calEntry.StartDateTime = fmt.Sprintf("%sT%s", date, time)
 
 				fmt.Print("Enter Event End Date (YYYY-MM-DD): ")
-				fmt.Scanf("%s\n", &date)
+				date, _ = reader.ReadString('\n')
 				fmt.Print("Enter Event End Time(HH:mm:ss): ")
-				fmt.Scanf("%s\n", &time)
+				time, _ = reader.ReadString('\n')
 				calEntry.EndDateTime = fmt.Sprintf("%sT%s", date, time)
 
 				fmt.Print("Enter Reccurence (press enter to ignore): ")
-				fmt.Scanf("%s\n", &calEntry.Recurrence)
+				calEntry.Recurrenc, _ = reader.ReadString('\n')
 
 				event, err := calUtil.AddCalendarEntry(calEntry, "primary", srv)
 
@@ -315,12 +316,13 @@ func main() {
 						TimeZone: eventSel.Start.TimeZone,
 					}
 				case "EndDateTime":
+					reader := bufio.NewReader(os.Stdin)
 					var date string = ""
 					var time string = ""
 					fmt.Print("Enter Event End Date (YYYY-MM-DD): ")
-					fmt.Scanf("%s\n", &date)
+					date, _ = reader.ReadString('\n')
 					fmt.Print("Enter Event End Time(HH:mm:ss): ")
-					fmt.Scanf("%s\n", &time)
+					time, _ = reader.ReadString('\n')
 					eventSel.End = &calendar.EventDateTime{
 						DateTime: fmt.Sprintf("%sT%s", date, time),
 						TimeZone: eventSel.End.TimeZone,
@@ -328,9 +330,8 @@ func main() {
 				case "TimeZone":
 					var newDetail string
 					fmt.Print("Enter new detail: ")
-					fmt.Scanf("%s\n", &newDetail)
-					eventSel.Start.TimeZone = newDetail
-					eventSel.End.TimeZone = newDetail
+					eventSel.Start.TimeZone, _ = reader.ReadString('\n')
+					eventSel.End.TimeZone = eventSel.Start.TimeZone
 				}
 				event, err := srv.Events.Update(calendarId, eventId, eventSel).Do()
 				if err != nil {
