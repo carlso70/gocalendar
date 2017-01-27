@@ -101,7 +101,8 @@ func main() {
 
 	ctx := context.Background()
 
-	b, err := ioutil.ReadFile("client_secret.json")
+	var secretPath string = os.Getenv("GOPATH") + "/src/github.com/carlso70/gocalendar/client_secret.json"
+	b, err := ioutil.ReadFile(secretPath)
 	if err != nil {
 		log.Fatalf("Unable to read client secret file: %v", err)
 	}
@@ -196,7 +197,7 @@ func main() {
 				var time string = ""
 				fmt.Print("Enter Event Start Date (YYYY-MM-DD): ")
 				fmt.Scanf("%s\n", &date)
-				fmt.Print("Enter Event Start Time(HH:mm:ss): ")
+				fmt.Print("Enter Event Start Time(HH:mm:ss) (Military Time): ")
 				fmt.Scanf("%s\n", &time)
 				calEntry.StartDateTime = fmt.Sprintf("%sT%s", date, time)
 
