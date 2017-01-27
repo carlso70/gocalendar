@@ -26,15 +26,13 @@ If `$GOPATH` is set:
 
 ```bash
 go get github.com/carlso70/gocalendar
-cd $GOPATH/src/github.com/carlso70/gocalendar
-go install gocal.go
 ```
 
 Also, make sure `$PATH` contains `$GOPATH/bin` in order to call the program from outside `$GOPATH/bin`.
 
 ## API Reference
 
-Official Google Calendar API Go Quickstartl: [https://developers.google.com/google-apps/calendar/quickstart/go](https://developers.google.com/google-apps/calendar/quickstart/go)
+Official Google Calendar API Go Quickstart: [https://developers.google.com/google-apps/calendar/quickstart/go](https://developers.google.com/google-apps/calendar/quickstart/go)
 
 Official Google Calendar API Reference: [https://developers.google.com/google-apps/calendar/v3/reference/](https://developers.google.com/google-apps/calendar/v3/reference/)
 
