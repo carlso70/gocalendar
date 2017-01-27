@@ -1,6 +1,9 @@
 package calendarutils
 
 import (
+	"fmt"
+	"log"
+
 	"google.golang.org/api/calendar/v3"
 )
 
@@ -38,22 +41,11 @@ func AddCalendarEntry(calendarEntry CalendarEntry, calId string, srv *calendar.S
 	return event, err
 }
 
-/*
-func PrintUpcomingEvents(events *calendar.Service.Events) {
-	if len(events.Items) > 0 {
-		for _, i := range events.Items {
-			var when string
-
-			// If DateTime is an empty string, the event is an all-day event
-			if i.Start.DateTime != "" {
-				when = i.Start.DateTime
-			} else {
-				when = i.Start.Date
-			}
-
-		}
+func RemoveCalendarEntry(event calendar.Event, calendarId string, srv *calendar.Service) {
+	err := srv.Events.Delete(calendarId, event.Id).Do()
+	if err != nil {
+		log.Fatalf("Unable to delete event. %v\n", err)
 	} else {
-		fmt.Print("No upcomning events found.\n")
+		fmt.Printf("Event deleted: %s", event.Summary)
 	}
 }
-*/
