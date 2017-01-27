@@ -208,9 +208,6 @@ func main() {
 				time, _ = reader.ReadString('\n')
 				calEntry.EndDateTime = fmt.Sprintf("%sT%s", date, time)
 
-				fmt.Print("Enter Reccurence (press enter to ignore): ")
-				calEntry.Recurrenc, _ = reader.ReadString('\n')
-
 				event, err := calUtil.AddCalendarEntry(calEntry, "primary", srv)
 
 				if err != nil {
@@ -328,7 +325,7 @@ func main() {
 						TimeZone: eventSel.End.TimeZone,
 					}
 				case "TimeZone":
-					var newDetail string
+					reader := bufio.NewReader(os.Stdin)
 					fmt.Print("Enter new detail: ")
 					eventSel.Start.TimeZone, _ = reader.ReadString('\n')
 					eventSel.End.TimeZone = eventSel.Start.TimeZone
