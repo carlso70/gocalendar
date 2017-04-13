@@ -13,7 +13,7 @@ We felt compelled to implement a command-line interface of Google Calendar in or
 ## Installation
 
 ### Prerequisites
-Requires Go to be installed. This can usually be done through your package manager. See [official documentation](https://golang.org/doc/install) for more information.
+Requires Go 1.5+ to be installed. This can usually be done through your package manager. See [official documentation](https://golang.org/doc/install) for more information.
 
 In order to use the commands, gocalendar will need to be given permission to manage your Google Calendar.
 
