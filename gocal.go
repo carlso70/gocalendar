@@ -372,6 +372,7 @@ func main() {
 		cmdMenu.AddMenuItem("Remove an existing calendar entry", "remove")
 		cmdMenu.AddMenuItem("Edit an existing calendar entry", "edit")
 		cmdMenu.AddMenuItem("View an existing calendar entry", "view")
+		cmdMenu.AddMenuItem("Exit", "exit")
 		id, _ := cmdMenu.Run()
 
 		switch id {
@@ -383,6 +384,8 @@ func main() {
 			edit()
 		case "view":
 			view()
+		case "exit":
+			os.Exit(0)
 		default:
 			os.Exit(1)
 		}
