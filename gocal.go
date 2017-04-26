@@ -101,7 +101,7 @@ func main() {
 
 	ctx := context.Background()
 
-	var secretPath string = os.Getenv("GOPATH") + "/src/github.com/carlso70/gocalendar/client_secret.json"
+	var secretPath = os.Getenv("GOPATH") + "/src/github.com/carlso70/gocalendar/client_secret.json"
 	b, err := ioutil.ReadFile(secretPath)
 	if err != nil {
 		log.Fatalf("Unable to read client secret file: %v", err)
@@ -151,14 +151,14 @@ func main() {
 			Usage:   "remove an appointment on your calendar",
 			Action: func(c *cli.Context) error {
 
-				calendarId := "primary"
+				calendarID := "primary"
 				fmt.Println("Possible match(es) to search query", c.Args().First(), ":")
-				var index int = 0
-				var pageToken string = ""
-				// Map of index -> eventId used for deleting from calendar
+				var index int
+				var pageToken string
+				// Map of index -> eventID used for deleting from calendar
 				idMap := make(map[int]string)
 				for {
-					eventsList, _ := srv.Events.List(calendarId).Q(c.Args().First()).PageToken(pageToken).Do()
+					eventsList, _ := srv.Events.List(calendarID).Q(c.Args().First()).PageToken(pageToken).Do()
 					for _, foundEvent := range eventsList.Items {
 						index = index + 1
 						fmt.Println(index, ": ", foundEvent.Summary)
@@ -169,12 +169,12 @@ func main() {
 					}
 				}
 
-				var selectedIndex int = -1
+				var selectedIndex = -1
 				fmt.Print("Enter index of event you wish to remove: ")
 				fmt.Scanf("%d", &selectedIndex)
 
 				if idMap[selectedIndex] != "" {
-					err := srv.Events.Delete(calendarId, idMap[selectedIndex]).Do()
+					err := srv.Events.Delete(calendarID, idMap[selectedIndex]).Do()
 					if err != nil {
 						log.Fatalf("Unable to delete event. %v\n", err)
 					}
@@ -195,8 +195,8 @@ func main() {
 				fmt.Print("Enter Event Location: ")
 				calEntry.Location, _ = reader.ReadString('\n')
 
-				var date string = ""
-				var time string = ""
+				var date string
+				var time string
 				fmt.Print("Enter Event Start Date (YYYY-MM-DD): ")
 				date, _ = reader.ReadString('\n')
 				fmt.Print("Enter Event Start Time(HH:mm:ss) (Military Time): ")
@@ -224,14 +224,14 @@ func main() {
 			Aliases: []string{"s"},
 			Usage:   "show an appointment on your calendar",
 			Action: func(c *cli.Context) error {
-				calendarId := "primary"
+				calendarID := "primary"
 				fmt.Println("Possible match(es) to search query", c.Args().First(), ":")
-				var index int = 0
-				var pageToken string = ""
-				// Map of index -> eventId used for deleting from calendar
+				var index int
+				var pageToken string
+				// Map of index -> eventID used for deleting from calendar
 				idMap := make(map[int]string)
 				for {
-					eventsList, _ := srv.Events.List(calendarId).Q(c.Args().First()).PageToken(pageToken).Do()
+					eventsList, _ := srv.Events.List(calendarID).Q(c.Args().First()).PageToken(pageToken).Do()
 					for _, foundEvent := range eventsList.Items {
 						index = index + 1
 						fmt.Println(index, ": ", foundEvent.Summary)
@@ -242,13 +242,13 @@ func main() {
 					}
 				}
 
-				var selectedIndex int = -1
+				var selectedIndex = -1
 				fmt.Print("Enter index of event you wish to show: ")
 				fmt.Scanf("%d", &selectedIndex)
 				if idMap[selectedIndex] == "" {
 					log.Fatalf("Unable to select event %d.\n", selectedIndex)
 				}
-				eventSel, err := srv.Events.Get(calendarId, idMap[selectedIndex]).Do()
+				eventSel, err := srv.Events.Get(calendarID, idMap[selectedIndex]).Do()
 				if err != nil {
 					log.Fatalf("Unable to select event. %s\n", err)
 				}
@@ -271,14 +271,14 @@ func main() {
 			Aliases: []string{"e"},
 			Usage:   "edit an appointment on your calendar",
 			Action: func(c *cli.Context) error {
-				calendarId := "primary"
+				calendarID := "primary"
 				fmt.Println("Possible match(es) to search query", c.Args().First(), ":")
-				var index int = 0
-				var pageToken string = ""
-				// Map of index -> eventId used for deleting from calendar
+				var index int
+				var pageToken string
+				// Map of index -> eventID used for deleting from calendar
 				idMap := make(map[int]string)
 				for {
-					eventsList, _ := srv.Events.List(calendarId).Q(c.Args().First()).PageToken(pageToken).Do()
+					eventsList, _ := srv.Events.List(calendarID).Q(c.Args().First()).PageToken(pageToken).Do()
 					for _, foundEvent := range eventsList.Items {
 						index = index + 1
 						fmt.Println(index, ": ", foundEvent.Summary)
@@ -289,14 +289,14 @@ func main() {
 					}
 				}
 
-				var selectedIndex int = -1
+				var selectedIndex = -1
 				fmt.Print("Enter index of event you wish to edit: ")
 				fmt.Scanf("%d", &selectedIndex)
-				eventId := idMap[selectedIndex]
+				eventID := idMap[selectedIndex]
 				if idMap[selectedIndex] == "" {
 					log.Fatalf("Unable to select event %d.\n", selectedIndex)
 				}
-				eventSel, err := srv.Events.Get(calendarId, idMap[selectedIndex]).Do()
+				eventSel, err := srv.Events.Get(calendarID, idMap[selectedIndex]).Do()
 				if err != nil {
 					log.Fatalf("Unable to select event. %s\n", err)
 				}
@@ -350,8 +350,8 @@ func main() {
 					eventSel.Description, _ = reader.ReadString('\n')
 				case "StartDateTime":
 					reader := bufio.NewReader(os.Stdin)
-					var date string = ""
-					var time string = ""
+					var date string
+					var time string
 					fmt.Print("Enter Event Start Date (YYYY-MM-DD): ")
 					date, _ = reader.ReadString('\n')
 					fmt.Print("Enter Event Start Time (HH:mm:ss): ")
@@ -362,8 +362,8 @@ func main() {
 					}
 				case "EndDateTime":
 					reader := bufio.NewReader(os.Stdin)
-					var date string = ""
-					var time string = ""
+					var date string
+					var time string
 					fmt.Print("Enter Event End Date (YYYY-MM-DD): ")
 					date, _ = reader.ReadString('\n')
 					fmt.Print("Enter Event End Time(HH:mm:ss): ")
@@ -378,7 +378,7 @@ func main() {
 					eventSel.Start.TimeZone, _ = reader.ReadString('\n')
 					eventSel.End.TimeZone = eventSel.Start.TimeZone
 				}
-				event, err := srv.Events.Update(calendarId, eventId, eventSel).Do()
+				event, err := srv.Events.Update(calendarID, eventID, eventSel).Do()
 				if err != nil {
 					log.Fatalf("Unable to update event. %s\n", err)
 				}
