@@ -94,39 +94,53 @@ func saveToken(file string, token *oauth2.Token) {
 	json.NewEncoder(f).Encode(token)
 }
 
-func add() {
+func add(srv *calendar.Service) {
 	var calEntry calUtil.CalendarEntry
-	reader := bufio.NewReader(os.Stdin)
-	fmt.Print("Enter Event Summary: ")
-	calEntry.Summary, _ = reader.ReadString('\n')
-	fmt.Print("Enter Event Location: ")
-	calEntry.Location, _ = reader.ReadString('\n')
+	calEntry.Summary = climenu.GetText("Enter Event Summary", "")
+	calEntry.Location = climenu.GetText("Enter Event Location", "")
 
 	var date string
 	var time string
-	fmt.Print("Enter Event Start Date (YYYY-MM-DD): ")
-	date, _ = reader.ReadString('\n')
-	fmt.Print("Enter Event Start Time(HH:mm:ss) (Military Time): ")
-	time, _ = reader.ReadString('\n')
+	date = climenu.GetText("Enter Event Start Date (YYYY-MM-DD)", "")
+	time = climenu.GetText("Enter Event Start Time (HH:mm:ss) (24-hour)", "")
 	calEntry.StartDateTime = fmt.Sprintf("%sT%s", date, time)
 
-	fmt.Print("Enter Event End Date (YYYY-MM-DD): ")
-	date, _ = reader.ReadString('\n')
-	fmt.Print("Enter Event End Time(HH:mm:ss): ")
-	time, _ = reader.ReadString('\n')
+	date = climenu.GetText("Enter Event End Date (YYYY-MM-DD)", "")
+	time = climenu.GetText("Enter Event End Time (HH:mm:ss) (24-hour)", "")
 	calEntry.EndDateTime = fmt.Sprintf("%sT%s", date, time)
 
-	event, err := calUtil.AddCalendarEntry(calEntry, "primary", srv)
+	IDs, err := srv.CalendarList.List().Do().Items
+	if len(IDs) <= 0 || err != nil {
+		fmt.Println("No valid calendars found. Event creation cancelled")
+		return
+	}
+	calendarID := IDs[0]
+
+	if len(IDs) > 1 {
+		idMenu := climenu.NewButtonMenu("", "Select a command")
+		for _, entry := range IDs {
+			idMenu.AddMenuItem(entry, entry)
+		}
+		esc := false
+		calendarID, esc = idMenu.Run()
+		if esc {
+			fmt.Println("Escape character detected. Event creation cancelled.")
+			return
+		}
+	}
+
+	event, err := calUtil.AddCalendarEntry(calEntry, calendarID, srv)
 
 	if err != nil {
-		log.Fatalf("Unable to create event. %v\n", err)
+		fmt.Printf("Unable to create event. %v\n", err)
+		return
 	}
 
 	fmt.Printf("Event created. Link to event : %s\n", event.HtmlLink)
-	return nil
+	return
 }
 
-func remove() {
+func remove(srv *calendar.Service) {
 	calendarID := "primary"
 	fmt.Println("Possible match(es) to search query", c.Args().First(), ":")
 	var index int
@@ -156,10 +170,10 @@ func remove() {
 		}
 		fmt.Printf("Event deleted: %s\n", c.Args().First())
 	}
-	return nil
+	return
 }
 
-func edit() {
+func edit(srv *calendar.Service) {
 	calendarID := "primary"
 	fmt.Println("Possible match(es) to search query", c.Args().First(), ":")
 	var index int
@@ -273,10 +287,10 @@ func edit() {
 	}
 
 	fmt.Printf("Event created. Link to event : %s\n", event.HtmlLink)
-	return nil
+	return
 }
 
-func view() {
+func view(srv *calendar.Service) {
 	calendarID := "primary"
 	fmt.Println("Possible match(es) to search query", c.Args().First(), ":")
 	var index int
@@ -316,7 +330,7 @@ func view() {
 	}
 	fmt.Printf("\nSummary:\n\t%s\nLocation:\n\t%s\nDescription:\n\t%s\nWhen:\n\t%s\n", eventSel.Summary, eventSel.Location, eventSel.Description, when)
 	fmt.Printf("Link to event:\n\t%s\n", eventSel.HtmlLink)
-	return nil
+	return
 }
 
 func main() {
@@ -377,13 +391,13 @@ func main() {
 
 		switch id {
 		case "add":
-			add()
+			add(srv)
 		case "remove":
-			remove()
+			remove(srv)
 		case "edit":
-			edit()
+			edit(srv)
 		case "view":
-			view()
+			view(srv)
 		case "exit":
 			os.Exit(0)
 		default:
