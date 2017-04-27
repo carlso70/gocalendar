@@ -165,7 +165,6 @@ func remove(srv *calendar.Service) {
 
 	query := climenu.GetText("Search", "")
 
-	var index int
 	var pageToken string
 	eventsList, _ := srv.Events.List(calendarID).Q(query).PageToken(pageToken).Do()
 	// stack := make([]string, 0)
@@ -226,7 +225,6 @@ func remove(srv *calendar.Service) {
 }
 
 func edit(srv *calendar.Service) {
-
 	cl, err := srv.CalendarList.List().Do()
 	IDs := cl.Items
 	if len(IDs) <= 0 || err != nil {
@@ -251,7 +249,6 @@ func edit(srv *calendar.Service) {
 
 	query := climenu.GetText("Search", "")
 
-	var index int
 	var pageToken string
 	eventsList, _ := srv.Events.List(calendarID).Q(query).PageToken(pageToken).Do()
 
@@ -302,7 +299,7 @@ func edit(srv *calendar.Service) {
 			editMenu.AddMenuItem("EndDateTime   | "+selected.End.DateTime, idList[4])
 			editMenu.AddMenuItem("Time Zone     | "+selected.Start.TimeZone, idList[5])
 			editMenu.AddMenuItem("Cancel", "cancel")
-			choice, esc := editMenu.Run()
+			choice, _ := editMenu.Run()
 
 			switch choice {
 			case "summary":
@@ -337,7 +334,7 @@ func edit(srv *calendar.Service) {
 				log.Fatalf("Unable to update event. %s\n", err)
 			}
 
-			fmt.Printf("Event created. Link to event : %s\n", event.HtmlLink)
+			fmt.Printf("Event updated. Link to event : %s\n", event.HtmlLink)
 			return
 		}
 	}
@@ -345,45 +342,91 @@ func edit(srv *calendar.Service) {
 }
 
 func view(srv *calendar.Service) {
-	calendarID := "primary"
-	fmt.Println("Possible match(es) to search query", c.Args().First(), ":")
-	var index int
-	var pageToken string
-	// Map of index -> eventID used for deleting from calendar
-	idMap := make(map[int]string)
-	for {
-		eventsList, _ := srv.Events.List(calendarID).Q(c.Args().First()).PageToken(pageToken).Do()
-		for _, foundEvent := range eventsList.Items {
-			index = index + 1
-			fmt.Println(index, ": ", foundEvent.Summary)
-			idMap[index] = foundEvent.Id
+
+	cl, err := srv.CalendarList.List().Do()
+	IDs := cl.Items
+	if len(IDs) <= 0 || err != nil {
+		fmt.Println("No valid calendars found. Event creation cancelled")
+		return
+	}
+	calendarID := IDs[0].Id
+
+	if len(IDs) > 1 {
+		idMenu := climenu.NewButtonMenu("", "Select a command")
+		for _, entry := range IDs {
+			id := entry.Id
+			idMenu.AddMenuItem(id, id)
 		}
-		if pageToken == "" {
+		esc := false
+		calendarID, esc = idMenu.Run()
+		if esc {
+			fmt.Println("Escape character detected. Event creation cancelled.")
+			return
+		}
+	}
+
+	query := climenu.GetText("Search", "")
+
+	var pageToken string
+	apiCall := srv.Events.List(calendarID).MaxResults(9).PageToken(pageToken)
+	eventsList, _ := apiCall.Q(query).Do()
+	initialPage := pageToken
+
+	for {
+		resultMenu := climenu.NewButtonMenu("", "Choose a result")
+		for _, foundEvent := range eventsList.Items {
+			resultMenu.AddMenuItem(foundEvent.Summary, foundEvent.Id)
+		}
+		if pageToken != eventsList.NextPageToken && eventsList.NextPageToken != initialPage {
+			resultMenu.AddMenuItem("Next Page", "nextPage")
+		} else if eventsList.NextPageToken == initialPage {
+			resultMenu.AddMenuItem("Reset", "nextPage")
+		}
+		option, esc := resultMenu.Run()
+		if esc {
+			fmt.Println("Escape character detected. Cancelling...")
 			break
 		}
+		switch option {
+		case "nextPage":
+			pageToken = eventsList.NextPageToken
+			apiCall := srv.Events.List(calendarID).MaxResults(9).PageToken(pageToken)
+			eventsList, err = apiCall.Q(query).Do()
+			if pageToken == "" {
+				break
+			}
+			if err != nil {
+				log.Fatalf("err != nil, page retrieval: %v\n", err)
+			}
+		case "cancel":
+			remove(srv)
+			return
+		case "":
+			log.Fatalf("Error selecting option: %v\n", err)
+		default:
+			var selected *calendar.Event
+			for i, item := range eventsList.Items {
+				if item.Id == option {
+					selected = eventsList.Items[i]
+					break
+				}
+			}
+			var when string
+			// If the DateTime is an empty string the Event is an all-day Event.
+			// So only Date is available.
+			if selected.Start.DateTime != "" {
+				when = selected.Start.DateTime
+			} else {
+				when = selected.Start.Date
+			}
+			fmt.Printf("Summary:\n\t%s\n", selected.Summary)
+			fmt.Printf("Location:\n\t%s\n", selected.Location)
+			fmt.Printf("Description:\n\t%s\n", selected.Description)
+			fmt.Printf("When:\n\t%s\n", when)
+			fmt.Printf("Link to event:\n\t%s\n", selected.HtmlLink)
+			return
+		}
 	}
-
-	var selectedIndex = -1
-	fmt.Print("Enter index of event you wish to show: ")
-	fmt.Scanf("%d", &selectedIndex)
-	if idMap[selectedIndex] == "" {
-		log.Fatalf("Unable to select event %d.\n", selectedIndex)
-	}
-	eventSel, err := srv.Events.Get(calendarID, idMap[selectedIndex]).Do()
-	if err != nil {
-		log.Fatalf("Unable to select event. %s\n", err)
-	}
-
-	var when string
-	// If the DateTime is an empty string the Event is an all-day Event.
-	// So only Date is available.
-	if eventSel.Start.DateTime != "" {
-		when = eventSel.Start.DateTime
-	} else {
-		when = eventSel.Start.Date
-	}
-	fmt.Printf("\nSummary:\n\t%s\nLocation:\n\t%s\nDescription:\n\t%s\nWhen:\n\t%s\n", eventSel.Summary, eventSel.Location, eventSel.Description, when)
-	fmt.Printf("Link to event:\n\t%s\n", eventSel.HtmlLink)
 	return
 }
 
@@ -452,10 +495,8 @@ func main() {
 			edit(srv)
 		case "view":
 			view(srv)
-		case "exit":
-			os.Exit(0)
 		default:
-			os.Exit(1)
+			os.Exit(0)
 		}
 
 	}
