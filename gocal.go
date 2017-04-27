@@ -95,6 +95,28 @@ func saveToken(file string, token *oauth2.Token) {
 }
 
 func add(srv *calendar.Service) {
+	cl, err := srv.CalendarList.List().Do()
+	IDs := cl.Items
+	if len(IDs) <= 0 || err != nil {
+		fmt.Println("No valid calendars found. Event creation cancelled")
+		return
+	}
+	calendarID := IDs[0].Id
+
+	if len(IDs) > 1 {
+		idMenu := climenu.NewButtonMenu("", "Select a command")
+		for _, entry := range IDs {
+			id := entry.Id
+			idMenu.AddMenuItem(id, id)
+		}
+		esc := false
+		calendarID, esc = idMenu.Run()
+		if esc {
+			fmt.Println("Escape character detected. Event creation cancelled.")
+			return
+		}
+	}
+
 	var calEntry calUtil.CalendarEntry
 	calEntry.Summary = climenu.GetText("Enter Event Summary", "")
 	calEntry.Location = climenu.GetText("Enter Event Location", "")
@@ -109,26 +131,6 @@ func add(srv *calendar.Service) {
 	time = climenu.GetText("Enter Event End Time (HH:mm:ss) (24-hour)", "")
 	calEntry.EndDateTime = fmt.Sprintf("%sT%s", date, time)
 
-	IDs, err := srv.CalendarList.List().Do().Items
-	if len(IDs) <= 0 || err != nil {
-		fmt.Println("No valid calendars found. Event creation cancelled")
-		return
-	}
-	calendarID := IDs[0]
-
-	if len(IDs) > 1 {
-		idMenu := climenu.NewButtonMenu("", "Select a command")
-		for _, entry := range IDs {
-			idMenu.AddMenuItem(entry, entry)
-		}
-		esc := false
-		calendarID, esc = idMenu.Run()
-		if esc {
-			fmt.Println("Escape character detected. Event creation cancelled.")
-			return
-		}
-	}
-
 	event, err := calUtil.AddCalendarEntry(calEntry, calendarID, srv)
 
 	if err != nil {
@@ -141,34 +143,91 @@ func add(srv *calendar.Service) {
 }
 
 func remove(srv *calendar.Service) {
-	calendarID := "primary"
-	fmt.Println("Possible match(es) to search query", c.Args().First(), ":")
-	var index int
-	var pageToken string
-	// Map of index -> eventID used for deleting from calendar
-	idMap := make(map[int]string)
-	for {
-		eventsList, _ := srv.Events.List(calendarID).Q(c.Args().First()).PageToken(pageToken).Do()
-		for _, foundEvent := range eventsList.Items {
-			index = index + 1
-			fmt.Println(index, ": ", foundEvent.Summary)
-			idMap[index] = foundEvent.Id
+	cl, err := srv.CalendarList.List().Do()
+	IDs := cl.Items
+	if len(IDs) <= 0 || err != nil {
+		fmt.Println("No valid calendars found. Event creation cancelled")
+		return
+	}
+	calendarID := IDs[0].Id
+
+	if len(IDs) > 1 {
+		idMenu := climenu.NewButtonMenu("", "Select a command")
+		for _, entry := range IDs {
+			id := entry.Id
+			idMenu.AddMenuItem(id, id)
 		}
-		if pageToken == "" {
-			break
+		esc := false
+		calendarID, esc = idMenu.Run()
+		if esc {
+			fmt.Println("Escape character detected. Event creation cancelled.")
+			return
 		}
 	}
 
-	var selectedIndex = -1
-	fmt.Print("Enter index of event you wish to remove: ")
-	fmt.Scanf("%d", &selectedIndex)
+	query := climenu.GetText("Search", "")
 
-	if idMap[selectedIndex] != "" {
-		err := srv.Events.Delete(calendarID, idMap[selectedIndex]).Do()
-		if err != nil {
-			log.Fatalf("Unable to delete event. %v\n", err)
+	var index int
+	var pageToken string
+	eventsList, _ := srv.Events.List(calendarID).Q(query).PageToken(pageToken).Do()
+	// stack := make([]string, 0)
+
+	for {
+		resultMenu := climenu.NewButtonMenu("", "Choose a result")
+		for _, foundEvent := range eventsList.Items {
+			resultMenu.AddMenuItem(foundEvent.Summary, foundEvent.Id)
 		}
-		fmt.Printf("Event deleted: %s\n", c.Args().First())
+		resultMenu.AddMenuItem("Next Page", "nextPage")
+		if pageToken == "" {
+			break
+		}
+		option, esc := resultMenu.Run()
+		if esc {
+			continue
+		}
+		switch option {
+		case "nextPage":
+			// append(stack, pageToken)
+			eventsList, _ = srv.Events.List(calendarID).Q(query).PageToken(pageToken).Do()
+		// case "backPage":
+		// l := len(stack)
+		// eventsList, _ = srv.Events.List(calendarID).Q(query).PageToken(stack[l-2]).Do()
+		// stack = stack[:l-2]
+		case "cancel":
+			remove(srv)
+			return
+		case "":
+			log.Fatalf("Error selecting option: %v\n", err)
+		default:
+			var selected *calendar.Event
+			for i, item := range eventsList.Items {
+				if item.Id == option {
+					selected = eventsList.Items[i]
+					break
+				}
+			}
+			confirmMenu := climenu.NewButtonMenu(selected.Summary, "Confirm deletion")
+			confirmMenu.AddMenuItem("Delete", "delete")
+			confirmMenu.AddMenuItem("Cancel", "cancel")
+			confirmation, esc := confirmMenu.Run()
+			if esc {
+				continue
+			}
+			switch confirmation {
+			case "cancel":
+				continue
+			case "delete":
+				err := srv.Events.Delete(calendarID, selected.Id).Do()
+				if err != nil {
+					log.Fatalf("Unable to delete event. %v\n", err)
+				}
+				fmt.Printf("Event deleted: %s\n", selected.Summary)
+				return
+			default:
+				fmt.Println("Didn't register input. Cancelling...")
+				continue
+			}
+		}
 	}
 	return
 }
