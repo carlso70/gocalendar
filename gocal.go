@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bufio"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -11,7 +10,6 @@ import (
 	"os"
 	"os/user"
 	"path/filepath"
-	"strings"
 	"time"
 
 	calUtil "github.com/carlso70/gocalendar/calendarutils"
@@ -187,12 +185,7 @@ func remove(srv *calendar.Service) {
 		}
 		switch option {
 		case "nextPage":
-			// append(stack, pageToken)
 			eventsList, _ = srv.Events.List(calendarID).Q(query).PageToken(pageToken).Do()
-		// case "backPage":
-		// l := len(stack)
-		// eventsList, _ = srv.Events.List(calendarID).Q(query).PageToken(stack[l-2]).Do()
-		// stack = stack[:l-2]
 		case "cancel":
 			remove(srv)
 			return
@@ -233,119 +226,121 @@ func remove(srv *calendar.Service) {
 }
 
 func edit(srv *calendar.Service) {
-	calendarID := "primary"
-	fmt.Println("Possible match(es) to search query", c.Args().First(), ":")
+
+	cl, err := srv.CalendarList.List().Do()
+	IDs := cl.Items
+	if len(IDs) <= 0 || err != nil {
+		fmt.Println("No valid calendars found. Event creation cancelled")
+		return
+	}
+	calendarID := IDs[0].Id
+
+	if len(IDs) > 1 {
+		idMenu := climenu.NewButtonMenu("", "Select a command")
+		for _, entry := range IDs {
+			id := entry.Id
+			idMenu.AddMenuItem(id, id)
+		}
+		esc := false
+		calendarID, esc = idMenu.Run()
+		if esc {
+			fmt.Println("Escape character detected. Event creation cancelled.")
+			return
+		}
+	}
+
+	query := climenu.GetText("Search", "")
+
 	var index int
 	var pageToken string
-	// Map of index -> eventID used for deleting from calendar
-	idMap := make(map[int]string)
+	eventsList, _ := srv.Events.List(calendarID).Q(query).PageToken(pageToken).Do()
+
 	for {
-		eventsList, _ := srv.Events.List(calendarID).Q(c.Args().First()).PageToken(pageToken).Do()
+		resultMenu := climenu.NewButtonMenu("", "Choose a result")
 		for _, foundEvent := range eventsList.Items {
-			index = index + 1
-			fmt.Println(index, ": ", foundEvent.Summary)
-			idMap[index] = foundEvent.Id
+			resultMenu.AddMenuItem(foundEvent.Summary, foundEvent.Id)
 		}
+		resultMenu.AddMenuItem("Next Page", "nextPage")
 		if pageToken == "" {
 			break
 		}
-	}
+		option, esc := resultMenu.Run()
+		if esc {
+			continue
+		}
+		switch option {
+		case "nextPage":
+			eventsList, _ = srv.Events.List(calendarID).Q(query).PageToken(pageToken).Do()
+		case "cancel":
+			remove(srv)
+			return
+		case "":
+			log.Fatalf("Error selecting option: %v\n", err)
+		default:
+			var selected *calendar.Event
+			for i, item := range eventsList.Items {
+				if item.Id == option {
+					selected = eventsList.Items[i]
+					break
+				}
+			}
 
-	var selectedIndex = -1
-	fmt.Print("Enter index of event you wish to edit: ")
-	fmt.Scanf("%d", &selectedIndex)
-	eventID := idMap[selectedIndex]
-	if idMap[selectedIndex] == "" {
-		log.Fatalf("Unable to select event %d.\n", selectedIndex)
-	}
-	eventSel, err := srv.Events.Get(calendarID, idMap[selectedIndex]).Do()
-	if err != nil {
-		log.Fatalf("Unable to select event. %s\n", err)
-	}
+			editMenu := climenu.NewButtonMenu(selected.Summary, "Choose option to edit")
 
-	eventList := []string{
-		"",
-		"Summary",
-		"Location",
-		"Description",
-		"StartDateTime",
-		"EndDateTime",
-		"TimeZone",
-	}
-	detailList := []string{
-		"",
-		eventSel.Summary,
-		eventSel.Location,
-		eventSel.Description,
-		eventSel.Start.DateTime,
-		eventSel.End.DateTime,
-		eventSel.Start.TimeZone,
-	}
-	if len(detailList) >= 2 && strings.HasSuffix(detailList[3], "\n") {
-		detailList[3] = detailList[3][:len(detailList[3])-2]
-	}
+			idList := []string{
+				"summary",
+				"loc",
+				"desc",
+				"start",
+				"end",
+				"zone",
+			}
+			editMenu.AddMenuItem("Summary       | "+selected.Summary, idList[0])
+			editMenu.AddMenuItem("Location      | "+selected.Location, idList[1])
+			editMenu.AddMenuItem("Description   | "+selected.Description, idList[2])
+			editMenu.AddMenuItem("StartDateTime | "+selected.Start.DateTime, idList[3])
+			editMenu.AddMenuItem("EndDateTime   | "+selected.End.DateTime, idList[4])
+			editMenu.AddMenuItem("Time Zone     | "+selected.Start.TimeZone, idList[5])
+			editMenu.AddMenuItem("Cancel", "cancel")
+			choice, esc := editMenu.Run()
 
-	for ind, detail := range eventList {
-		if ind > 0 {
-			fmt.Println(ind, ": ", detail, "|", detailList[ind])
+			switch choice {
+			case "summary":
+				selected.Summary = climenu.GetText("Enter new Summary", "")
+			case "loc":
+				selected.Location = climenu.GetText("Enter new Location", "")
+			case "desc":
+				selected.Description = climenu.GetText("Enter new Description", "")
+			case "start":
+				date := climenu.GetText("Enter new Start Date (YYYY-MM-DD)", "")
+				time := climenu.GetText("Enter new Start Time (HH:mm:ss)", "")
+				selected.Start = &calendar.EventDateTime{
+					DateTime: fmt.Sprintf("%sT%s", date, time),
+					TimeZone: selected.Start.TimeZone,
+				}
+			case "end":
+				date := climenu.GetText("Enter new End Date (YYYY-MM-DD)", "")
+				time := climenu.GetText("Enter new End Time (HH:mm:ss)", "")
+				selected.End = &calendar.EventDateTime{
+					DateTime: fmt.Sprintf("%sT%s", date, time),
+					TimeZone: selected.End.TimeZone,
+				}
+			case "zone":
+				selected.Start.TimeZone = climenu.GetText("Enter new Time Zone", "")
+				selected.End.TimeZone = selected.Start.TimeZone
+			default:
+				fmt.Println("Cancelling...")
+				return
+			}
+			event, err := srv.Events.Update(calendarID, selected.Id, selected).Do()
+			if err != nil {
+				log.Fatalf("Unable to update event. %s\n", err)
+			}
+
+			fmt.Printf("Event created. Link to event : %s\n", event.HtmlLink)
+			return
 		}
 	}
-
-	var detailSel int
-	fmt.Print("Select number of detail to edit: ")
-	fmt.Scanf("%d\n", &detailSel)
-
-	switch eventList[detailSel] {
-	case "":
-		log.Fatalf("Unable to select detail %d.\n", detailSel)
-	case "Summary":
-		reader := bufio.NewReader(os.Stdin)
-		fmt.Print("Enter new Summary: ")
-		eventSel.Summary, _ = reader.ReadString('\n')
-	case "Location":
-		reader := bufio.NewReader(os.Stdin)
-		fmt.Print("Enter new Location: ")
-		eventSel.Location, _ = reader.ReadString('\n')
-	case "Description":
-		reader := bufio.NewReader(os.Stdin)
-		fmt.Print("Enter new Description: ")
-		eventSel.Description, _ = reader.ReadString('\n')
-	case "StartDateTime":
-		reader := bufio.NewReader(os.Stdin)
-		var date string
-		var time string
-		fmt.Print("Enter Event Start Date (YYYY-MM-DD): ")
-		date, _ = reader.ReadString('\n')
-		fmt.Print("Enter Event Start Time (HH:mm:ss): ")
-		time, _ = reader.ReadString('\n')
-		eventSel.Start = &calendar.EventDateTime{
-			DateTime: fmt.Sprintf("%sT%s", date, time),
-			TimeZone: eventSel.Start.TimeZone,
-		}
-	case "EndDateTime":
-		reader := bufio.NewReader(os.Stdin)
-		var date string
-		var time string
-		fmt.Print("Enter Event End Date (YYYY-MM-DD): ")
-		date, _ = reader.ReadString('\n')
-		fmt.Print("Enter Event End Time(HH:mm:ss): ")
-		time, _ = reader.ReadString('\n')
-		eventSel.End = &calendar.EventDateTime{
-			DateTime: fmt.Sprintf("%sT%s", date, time),
-			TimeZone: eventSel.End.TimeZone,
-		}
-	case "TimeZone":
-		reader := bufio.NewReader(os.Stdin)
-		fmt.Print("Enter new detail: ")
-		eventSel.Start.TimeZone, _ = reader.ReadString('\n')
-		eventSel.End.TimeZone = eventSel.Start.TimeZone
-	}
-	event, err := srv.Events.Update(calendarID, eventID, eventSel).Do()
-	if err != nil {
-		log.Fatalf("Unable to update event. %s\n", err)
-	}
-
-	fmt.Printf("Event created. Link to event : %s\n", event.HtmlLink)
 	return
 }
 
