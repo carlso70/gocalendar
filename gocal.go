@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/user"
 	"path/filepath"
+	"strconv"
 	"time"
 
 	calUtil "github.com/carlso70/gocalendar/calendarutils"
@@ -19,6 +20,49 @@ import (
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/calendar/v3"
 )
+
+type ymdhms struct {
+	year, month, day, hour, minute, second, nsec string
+}
+
+func parseDate(data ymdhms, timeZone string) (time.Time, error) {
+	var newDate time.Time
+	var Y, M, D, h, m, s, ns int64
+	Y, err := strconv.ParseInt(data.year, 10, 0)
+	if err != nil {
+		return newDate, fmt.Errorf("failed to parse %s as an int", Y)
+	}
+	M, err = strconv.ParseInt(data.month, 10, 0)
+	if err != nil {
+		return newDate, fmt.Errorf("failed to parse %s as an int", M)
+	}
+	D, err = strconv.ParseInt(data.day, 10, 0)
+	if err != nil {
+		return newDate, fmt.Errorf("failed to parse %s as an int", D)
+	}
+	h, err = strconv.ParseInt(data.hour, 10, 0)
+	if err != nil {
+		return newDate, fmt.Errorf("failed to parse %s as an int", h)
+	}
+	m, err = strconv.ParseInt(data.minute, 10, 0)
+	if err != nil {
+		return newDate, fmt.Errorf("failed to parse %s as an int", m)
+	}
+	s, err = strconv.ParseInt(data.second, 10, 0)
+	if err != nil {
+		return newDate, fmt.Errorf("failed to parse %s as an int", s)
+	}
+	ns, err = strconv.ParseInt(data.nsec, 10, 0)
+	if err != nil {
+		return newDate, fmt.Errorf("failed to parse %s as an int", ns)
+	}
+	loc, err := time.LoadLocation(timeZone)
+	if err != nil {
+		return newDate, fmt.Errorf("failed to fetch %s as a TimeZone", timeZone)
+	}
+	newDate = time.Date(int(Y), time.Month(int(M)), int(D), int(h), int(m), int(s), int(ns), loc)
+	return newDate, err
+}
 
 // getClient uses a Context and Config to retrieve a Token
 // then generate a Client. It returns the generated Client.
@@ -102,7 +146,7 @@ func add(srv *calendar.Service) {
 	calendarID := IDs[0].Id
 
 	if len(IDs) > 1 {
-		idMenu := climenu.NewButtonMenu("", "Select a command")
+		idMenu := climenu.NewButtonMenu("", "Select a calendar")
 		for _, entry := range IDs {
 			id := entry.Id
 			idMenu.AddMenuItem(id, id)
@@ -119,20 +163,84 @@ func add(srv *calendar.Service) {
 	calEntry.Summary = climenu.GetText("Enter Event Summary", "")
 	calEntry.Location = climenu.GetText("Enter Event Location", "")
 
-	var date string
-	var time string
-	date = climenu.GetText("Enter Event Start Date (YYYY-MM-DD)", "")
-	time = climenu.GetText("Enter Event Start Time (HH:mm:ss) (24-hour)", "")
-	calEntry.StartDateTime = fmt.Sprintf("%sT%s", date, time)
+	cal, err := srv.Calendars.Get(calendarID).Do()
+	var start time.Time
+	//for date == "" {
+	//date = climenu.GetText("Enter Event Start Date (YYYY-MM-DD)", "")
+	//}
+	var year string
+	for year == "" {
+		year = climenu.GetText("Enter event year start", "")
+	}
+	var month string
+	for month == "" {
+		month = climenu.GetText("Enter event month start", "")
+	}
+	var day string
+	for day == "" {
+		day = climenu.GetText("Enter event day start", "")
+	}
+	var hour string
+	for hour == "" {
+		hour = climenu.GetText("Enter event hour start", "")
+	}
+	var minute string
+	for minute == "" {
+		minute = climenu.GetText("Enter event minute start", "")
+	}
+	var second string
+	for second == "" {
+		second = climenu.GetText("Enter event second start", "")
+	}
+	nsec := "0"
+	startDate := ymdhms{
+		year:   year,
+		month:  month,
+		day:    day,
+		hour:   hour,
+		minute: minute,
+		second: second,
+		nsec:   nsec,
+	}
+	start, err = parseDate(startDate, cal.TimeZone)
+	if err != nil {
+		fmt.Println("Failed to parse: %v", err)
+		return
+	}
+	//time = climenu.GetText("Enter Event Start Time (HH:mm:ss) (24-hour)", "")
+	if time == "" {
+		start.DateTime = date
+	} else {
+		start.TimeZone = cal.TimeZone
+		start.DateTime = fmt.Sprintf("%sT%s", date, time)
+	}
+	date = ""
+	time = ""
+	if err != nil {
+		log.Fatalf("Error fetching calendar time zone: %v\n", err)
+	}
 
-	date = climenu.GetText("Enter Event End Date (YYYY-MM-DD)", "")
+	var end calendar.EventDateTime
+	for date == "" {
+		date = climenu.GetText("Enter Event End Date (YYYY-MM-DD)", "")
+	}
 	time = climenu.GetText("Enter Event End Time (HH:mm:ss) (24-hour)", "")
-	calEntry.EndDateTime = fmt.Sprintf("%sT%s", date, time)
+	if time == "" {
+		end.DateTime = date
+	} else {
+		end.TimeZone = cal.TimeZone
+		end.DateTime = fmt.Sprintf("%sT%s", date, time)
+	}
+	if err != nil {
+		log.Fatalf("Error fetching calendar time zone: %v\n", err)
+	}
 
+	calEntry.StartDateTime = start.Format(time.RFC3339)
+	calEntry.EndDateTime, _ = end.MarshalJSON()
 	event, err := calUtil.AddCalendarEntry(calEntry, calendarID, srv)
 
 	if err != nil {
-		fmt.Printf("Unable to create event. %v\n", err)
+		fmt.Printf("Unable to create event: %v\n", err)
 		return
 	}
 
@@ -166,17 +274,19 @@ func remove(srv *calendar.Service) {
 	query := climenu.GetText("Search", "")
 
 	var pageToken string
-	eventsList, _ := srv.Events.List(calendarID).Q(query).PageToken(pageToken).Do()
-	// stack := make([]string, 0)
+	apiCall := srv.Events.List(calendarID).MaxResults(9).PageToken(pageToken)
+	eventsList, _ := apiCall.Q(query).Do()
+	initialPage := pageToken
 
 	for {
 		resultMenu := climenu.NewButtonMenu("", "Choose a result")
 		for _, foundEvent := range eventsList.Items {
 			resultMenu.AddMenuItem(foundEvent.Summary, foundEvent.Id)
 		}
-		resultMenu.AddMenuItem("Next Page", "nextPage")
-		if pageToken == "" {
-			break
+		if pageToken != eventsList.NextPageToken && eventsList.NextPageToken != initialPage {
+			resultMenu.AddMenuItem("Next Page", "nextPage")
+		} else if eventsList.NextPageToken == initialPage {
+			resultMenu.AddMenuItem("Reset", "nextPage")
 		}
 		option, esc := resultMenu.Run()
 		if esc {
@@ -184,7 +294,15 @@ func remove(srv *calendar.Service) {
 		}
 		switch option {
 		case "nextPage":
-			eventsList, _ = srv.Events.List(calendarID).Q(query).PageToken(pageToken).Do()
+			pageToken = eventsList.NextPageToken
+			apiCall := srv.Events.List(calendarID).MaxResults(9).PageToken(pageToken)
+			eventsList, err = apiCall.Q(query).Do()
+			if pageToken == "" {
+				break
+			}
+			if err != nil {
+				log.Fatalf("err != nil, page retrieval: %v\n", err)
+			}
 		case "cancel":
 			remove(srv)
 			return
@@ -250,16 +368,19 @@ func edit(srv *calendar.Service) {
 	query := climenu.GetText("Search", "")
 
 	var pageToken string
-	eventsList, _ := srv.Events.List(calendarID).Q(query).PageToken(pageToken).Do()
+	apiCall := srv.Events.List(calendarID).MaxResults(9).PageToken(pageToken)
+	eventsList, _ := apiCall.Q(query).Do()
+	initialPage := pageToken
 
 	for {
 		resultMenu := climenu.NewButtonMenu("", "Choose a result")
 		for _, foundEvent := range eventsList.Items {
 			resultMenu.AddMenuItem(foundEvent.Summary, foundEvent.Id)
 		}
-		resultMenu.AddMenuItem("Next Page", "nextPage")
-		if pageToken == "" {
-			break
+		if pageToken != eventsList.NextPageToken && eventsList.NextPageToken != initialPage {
+			resultMenu.AddMenuItem("Next Page", "nextPage")
+		} else if eventsList.NextPageToken == initialPage {
+			resultMenu.AddMenuItem("Reset", "nextPage")
 		}
 		option, esc := resultMenu.Run()
 		if esc {
@@ -267,7 +388,15 @@ func edit(srv *calendar.Service) {
 		}
 		switch option {
 		case "nextPage":
-			eventsList, _ = srv.Events.List(calendarID).Q(query).PageToken(pageToken).Do()
+			pageToken = eventsList.NextPageToken
+			apiCall := srv.Events.List(calendarID).MaxResults(9).PageToken(pageToken)
+			eventsList, err = apiCall.Q(query).Do()
+			if pageToken == "" {
+				break
+			}
+			if err != nil {
+				log.Fatalf("err != nil, page retrieval: %v\n", err)
+			}
 		case "cancel":
 			remove(srv)
 			return
