@@ -22,7 +22,19 @@ import (
 )
 
 type ymdhms struct {
-	year, month, day, hour, minute, second, nsec string
+	Year, Month, Day, Hour, Minute, Second, Nsec string
+}
+
+func NewYmdhms() *ymdhms {
+	return &ymdhms{
+		Year: "",
+		Month: "",
+		Day: "",
+		Hour: "",
+		Minute: "",
+		Second: "",
+		Nsec: ""
+	}
 }
 
 func parseDate(data ymdhms, timeZone string) (time.Time, error) {
@@ -30,31 +42,47 @@ func parseDate(data ymdhms, timeZone string) (time.Time, error) {
 	var Y, M, D, h, m, s, ns int64
 	Y, err := strconv.ParseInt(data.year, 10, 0)
 	if err != nil {
-		return newDate, fmt.Errorf("failed to parse %s as an int", Y)
+		return newDate, fmt.Errorf("failed to parse %d as an int", Y)
 	}
 	M, err = strconv.ParseInt(data.month, 10, 0)
 	if err != nil {
-		return newDate, fmt.Errorf("failed to parse %s as an int", M)
+		return newDate, fmt.Errorf("failed to parse %d as an int", M)
 	}
 	D, err = strconv.ParseInt(data.day, 10, 0)
 	if err != nil {
-		return newDate, fmt.Errorf("failed to parse %s as an int", D)
+		return newDate, fmt.Errorf("failed to parse %d as an int", D)
 	}
 	h, err = strconv.ParseInt(data.hour, 10, 0)
 	if err != nil {
-		return newDate, fmt.Errorf("failed to parse %s as an int", h)
+		if data.hour == "" {
+			h = 0
+		} else {
+			return newDate, fmt.Errorf("failed to parse %d as an int", h)
+		}
 	}
 	m, err = strconv.ParseInt(data.minute, 10, 0)
-	if err != nil {
-		return newDate, fmt.Errorf("failed to parse %s as an int", m)
+	if err != nil && m == "" {
+		if data.minute == "" {
+			m = 0
+		} else {
+			return newDate, fmt.Errorf("failed to parse %d as an int", m)
+		}
 	}
 	s, err = strconv.ParseInt(data.second, 10, 0)
-	if err != nil {
-		return newDate, fmt.Errorf("failed to parse %s as an int", s)
+	if err != nil && s == "" {
+		if data.second == "" {
+			s = 0
+		} else {
+			return newDate, fmt.Errorf("failed to parse %d as an int", s)
+		}
 	}
 	ns, err = strconv.ParseInt(data.nsec, 10, 0)
 	if err != nil {
-		return newDate, fmt.Errorf("failed to parse %s as an int", ns)
+		if data.nsec == "" {
+			ns = 0
+		} else {
+			return newDate, fmt.Errorf("failed to parse %d as an int", ns)
+		}
 	}
 	loc, err := time.LoadLocation(timeZone)
 	if err != nil {
@@ -193,22 +221,22 @@ func add(srv *calendar.Service) {
 		second = climenu.GetText("Enter event second start", "")
 	}
 	nsec := "0"
-	startDate := ymdhms{
-		year:   year,
-		month:  month,
-		day:    day,
-		hour:   hour,
-		minute: minute,
-		second: second,
-		nsec:   nsec,
-	}
+	startDate := NewYmdhms(
+		year,
+		month,
+		day,
+		hour,
+		minute,
+		second,
+		nsec,
+	)
 	start, err = parseDate(startDate, cal.TimeZone)
 	if err != nil {
-		fmt.Println("Failed to parse: %v", err)
+		fmt.Printf("Failed to parse: %v/n", err)
 		return
 	}
 	//time = climenu.GetText("Enter Event Start Time (HH:mm:ss) (24-hour)", "")
-	if time == "" {
+	if start. == "" {
 		start.DateTime = date
 	} else {
 		start.TimeZone = cal.TimeZone
@@ -339,7 +367,6 @@ func remove(srv *calendar.Service) {
 			}
 		}
 	}
-	return
 }
 
 func edit(srv *calendar.Service) {
@@ -467,7 +494,6 @@ func edit(srv *calendar.Service) {
 			return
 		}
 	}
-	return
 }
 
 func view(srv *calendar.Service) {
