@@ -129,7 +129,6 @@ func add(srv *calendar.Service) {
 
 	// ask for startDate input
 	startDate := calUtil.NewYmdhmsl()
-	var start time.Time
 	startDate.Year = climenu.GetText("Enter event year start", "")
 	startDate.Month = climenu.GetText("Enter event month start", "")
 	startDate.Day = climenu.GetText("Enter event day start", "")
@@ -137,31 +136,10 @@ func add(srv *calendar.Service) {
 	startDate.Minute = climenu.GetText("Enter event minute start", "")
 	startDate.Second = climenu.GetText("Enter event second start", "")
 	startDate.Nsec = "0"
-
-	start, err = calUtil.ParseDate(startDate)
-	if err != nil {
-		fmt.Printf("Failed to parse: %v\n", err)
-		return
-	}
-
-	hour, min, sec := start.Clock()
-	startEventDateTime := &calendar.EventDateTime{}
-	if hour == 0 && min == 0 && sec == 0 {
-		str := start.String()
-		if len(str) >= 10 {
-			startEventDateTime.Date = str[:10]
-		} else {
-			log.Fatalf("failed to get all day event string: %v\n", str)
-			return
-		}
-	} else {
-		startEventDateTime.DateTime = start.Format(time.RFC3339)
-	}
-	startEventDateTime.TimeZone = timeZone
+	startDate.Loc = timeZone
 
 	// ask for endDate input
 	endDate := calUtil.NewYmdhmsl()
-	var end time.Time
 	endDate.Year = climenu.GetText("Enter event year end", "")
 	endDate.Month = climenu.GetText("Enter event month end", "")
 	endDate.Day = climenu.GetText("Enter event day end", "")
@@ -169,30 +147,9 @@ func add(srv *calendar.Service) {
 	endDate.Minute = climenu.GetText("Enter event minute end", "")
 	endDate.Second = climenu.GetText("Enter event second end", "")
 	endDate.Nsec = "0"
+	endDate.Loc = timeZone
 
-	end, err = calUtil.ParseDate(endDate)
-	if err != nil {
-		fmt.Printf("Failed to parse: %v/n", err)
-		return
-	}
-
-	hour, min, sec = end.Clock()
-	endEventDateTime := &calendar.EventDateTime{}
-	if hour == 0 && min == 0 && sec == 0 {
-		str := end.String()
-		if len(str) >= 10 {
-			endEventDateTime.Date = str[:10]
-		} else {
-			log.Fatalf("failed to get all day event string: %v\n", str)
-			return
-		}
-	} else {
-		endEventDateTime.DateTime = end.Format(time.RFC3339)
-	}
-	endEventDateTime.TimeZone = timeZone
-
-	calEvent.Start = startEventDateTime
-	calEvent.End = endEventDateTime
+	calEvent, err = calUtil.AddTime(calEvent, startDate, endDate)
 
 	calEvent, err = srv.Events.Insert(calendarID, calEvent).Do()
 
