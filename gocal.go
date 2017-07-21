@@ -115,7 +115,6 @@ func add(srv *calendar.Service) {
 		}
 	}
 
-	var calEntry calUtil.CalendarEntry
 	calEvent := &calendar.Event{}
 	calEvent.Summary = climenu.GetText("Enter event summary", "")
 	calEvent.Location = climenu.GetText("Enter event location", "")
@@ -152,7 +151,7 @@ func add(srv *calendar.Service) {
 		if len(str) >= 10 {
 			startEventDateTime.Date = str[:10]
 		} else {
-			fmt.Fatalf("failed to get all day event string: %v\n", str)
+			log.Fatalf("failed to get all day event string: %v\n", str)
 			return
 		}
 	} else {
@@ -184,7 +183,7 @@ func add(srv *calendar.Service) {
 		if len(str) >= 10 {
 			endEventDateTime.Date = str[:10]
 		} else {
-			fmt.Fatalf("failed to get all day event string: %v\n", str)
+			log.Fatalf("failed to get all day event string: %v\n", str)
 			return
 		}
 	} else {
@@ -192,7 +191,7 @@ func add(srv *calendar.Service) {
 	}
 	endEventDateTime.TimeZone = timeZone
 
-	calEvent, err := srv.Events.Insert(calendarId, calEvent).Do()
+	calEvent, err := srv.Events.Insert(calendarID, calEvent).Do()
 
 	if err != nil {
 		fmt.Printf("Unable to create event: %v\n", err)

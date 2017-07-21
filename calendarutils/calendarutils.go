@@ -29,7 +29,7 @@ func NewYmdhmsl() *Ymdhmsl {
 }
 
 // ParseDate : Parses a Ymdhmsl struct and returns the resulting time.Time
-func ParseDate(data Ymdhmsl) (time.Time, error) {
+func ParseDate(data *Ymdhmsl) (time.Time, error) {
 	var newDate time.Time
 	var Y, M, D, h, m, s, ns int64
 	Y, err := strconv.ParseInt(data.Year, 10, 0)
