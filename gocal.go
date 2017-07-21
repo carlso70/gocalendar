@@ -21,77 +21,6 @@ import (
 	"google.golang.org/api/calendar/v3"
 )
 
-type ymdhms struct {
-	Year, Month, Day, Hour, Minute, Second, Nsec string
-}
-
-func NewYmdhms() *ymdhms {
-	return &ymdhms{
-		Year: "",
-		Month: "",
-		Day: "",
-		Hour: "",
-		Minute: "",
-		Second: "",
-		Nsec: ""
-	}
-}
-
-func parseDate(data ymdhms, timeZone string) (time.Time, error) {
-	var newDate time.Time
-	var Y, M, D, h, m, s, ns int64
-	Y, err := strconv.ParseInt(data.year, 10, 0)
-	if err != nil {
-		return newDate, fmt.Errorf("failed to parse %d as an int", Y)
-	}
-	M, err = strconv.ParseInt(data.month, 10, 0)
-	if err != nil {
-		return newDate, fmt.Errorf("failed to parse %d as an int", M)
-	}
-	D, err = strconv.ParseInt(data.day, 10, 0)
-	if err != nil {
-		return newDate, fmt.Errorf("failed to parse %d as an int", D)
-	}
-	h, err = strconv.ParseInt(data.hour, 10, 0)
-	if err != nil {
-		if data.hour == "" {
-			h = 0
-		} else {
-			return newDate, fmt.Errorf("failed to parse %d as an int", h)
-		}
-	}
-	m, err = strconv.ParseInt(data.minute, 10, 0)
-	if err != nil && m == "" {
-		if data.minute == "" {
-			m = 0
-		} else {
-			return newDate, fmt.Errorf("failed to parse %d as an int", m)
-		}
-	}
-	s, err = strconv.ParseInt(data.second, 10, 0)
-	if err != nil && s == "" {
-		if data.second == "" {
-			s = 0
-		} else {
-			return newDate, fmt.Errorf("failed to parse %d as an int", s)
-		}
-	}
-	ns, err = strconv.ParseInt(data.nsec, 10, 0)
-	if err != nil {
-		if data.nsec == "" {
-			ns = 0
-		} else {
-			return newDate, fmt.Errorf("failed to parse %d as an int", ns)
-		}
-	}
-	loc, err := time.LoadLocation(timeZone)
-	if err != nil {
-		return newDate, fmt.Errorf("failed to fetch %s as a TimeZone", timeZone)
-	}
-	newDate = time.Date(int(Y), time.Month(int(M)), int(D), int(h), int(m), int(s), int(ns), loc)
-	return newDate, err
-}
-
 // getClient uses a Context and Config to retrieve a Token
 // then generate a Client. It returns the generated Client.
 func getClient(ctx context.Context, config *oauth2.Config) *http.Client {
@@ -188,91 +117,90 @@ func add(srv *calendar.Service) {
 	}
 
 	var calEntry calUtil.CalendarEntry
-	calEntry.Summary = climenu.GetText("Enter Event Summary", "")
-	calEntry.Location = climenu.GetText("Enter Event Location", "")
+	calEvent := &calendar.Event{}
+	calEvent.Summary = climenu.GetText("Enter event summary", "")
+	calEvent.Location = climenu.GetText("Enter event location", "")
+	calEvent.Description = climenu.GetText("Enter event description", "")
+	timeZone := climenu.GetText("Enter event time zone (leave blank for calendar's time zone)", "")
+	if timeZone == "" {
+		cal, err := srv.Calendars.Get(calendarID).Do()
+		if err != nil {
+			timeZone = cal.TimeZone
+		}
+	}
 
-	cal, err := srv.Calendars.Get(calendarID).Do()
+	// ask for startDate input
+	startDate := calUtil.NewYmdhmsl()
 	var start time.Time
-	//for date == "" {
-	//date = climenu.GetText("Enter Event Start Date (YYYY-MM-DD)", "")
-	//}
-	var year string
-	for year == "" {
-		year = climenu.GetText("Enter event year start", "")
+	startDate.Year := climenu.GetText("Enter event year start", "")
+	startDate.Month := climenu.GetText("Enter event month start", "")
+	startDate.Day := climenu.GetText("Enter event day start", "")
+	startDate.Hour := climenu.GetText("Enter event hour start", "")
+	startDate.Minute := climenu.GetText("Enter event minute start", "")
+	startDate.Second := climenu.GetText("Enter event second start", "")
+	startDate.Nsec := "0"
+
+	start, err = calUtil.ParseDate(startDate)
+	if err != nil {
+		fmt.Printf("Failed to parse: %v\n", err)
+		return
 	}
-	var month string
-	for month == "" {
-		month = climenu.GetText("Enter event month start", "")
+
+	hour, min, sec := start.Clock()
+	startEventDateTime := &calendar.EventDateTime{}
+	if hour == 0 && min == 0 && sec == 0 {
+		str := start.String()
+		if len(str) >= 10 {
+			startEventDateTime.Date = str[:10]
+		} else {
+			fmt.Fatalf("failed to get all day event string: %v\n", str)
+			return
+		}
+	} else {
+		startEventDateTime.DateTime = start.Format(time.RFC3339)
 	}
-	var day string
-	for day == "" {
-		day = climenu.GetText("Enter event day start", "")
-	}
-	var hour string
-	for hour == "" {
-		hour = climenu.GetText("Enter event hour start", "")
-	}
-	var minute string
-	for minute == "" {
-		minute = climenu.GetText("Enter event minute start", "")
-	}
-	var second string
-	for second == "" {
-		second = climenu.GetText("Enter event second start", "")
-	}
-	nsec := "0"
-	startDate := NewYmdhms(
-		year,
-		month,
-		day,
-		hour,
-		minute,
-		second,
-		nsec,
-	)
-	start, err = parseDate(startDate, cal.TimeZone)
+	startEventDateTime.TimeZone = timeZone
+
+	// ask for endDate input
+	endDate := calUtil.NewYmdhmsl()
+	var end time.Time
+	endDate.Year := climenu.GetText("Enter event year end", "")
+	endDate.Month := climenu.GetText("Enter event month end", "")
+	endDate.Day := climenu.GetText("Enter event day end", "")
+	endDate.Hour := climenu.GetText("Enter event hour end", "")
+	endDate.Minute := climenu.GetText("Enter event minute end", "")
+	endDate.Second := climenu.GetText("Enter event second end", "")
+	endDate.Nsec := "0"
+
+	end, err = calUtil.ParseDate(endDate)
 	if err != nil {
 		fmt.Printf("Failed to parse: %v/n", err)
 		return
 	}
-	//time = climenu.GetText("Enter Event Start Time (HH:mm:ss) (24-hour)", "")
-	if start. == "" {
-		start.DateTime = date
-	} else {
-		start.TimeZone = cal.TimeZone
-		start.DateTime = fmt.Sprintf("%sT%s", date, time)
-	}
-	date = ""
-	time = ""
-	if err != nil {
-		log.Fatalf("Error fetching calendar time zone: %v\n", err)
-	}
 
-	var end calendar.EventDateTime
-	for date == "" {
-		date = climenu.GetText("Enter Event End Date (YYYY-MM-DD)", "")
-	}
-	time = climenu.GetText("Enter Event End Time (HH:mm:ss) (24-hour)", "")
-	if time == "" {
-		end.DateTime = date
+	hour, min, sec = end.Clock()
+	endEventDateTime := &calendar.EventDateTime{}
+	if hour == 0 && min == 0 && sec == 0 {
+		str := end.String()
+		if len(str) >= 10 {
+			endEventDateTime.Date = str[:10]
+		} else {
+			fmt.Fatalf("failed to get all day event string: %v\n", str)
+			return
+		}
 	} else {
-		end.TimeZone = cal.TimeZone
-		end.DateTime = fmt.Sprintf("%sT%s", date, time)
+		endEventDateTime.DateTime = end.Format(time.RFC3339)
 	}
-	if err != nil {
-		log.Fatalf("Error fetching calendar time zone: %v\n", err)
-	}
+	endEventDateTime.TimeZone = timeZone
 
-	calEntry.StartDateTime = start.Format(time.RFC3339)
-	calEntry.EndDateTime, _ = end.MarshalJSON()
-	event, err := calUtil.AddCalendarEntry(calEntry, calendarID, srv)
+	calEvent, err := srv.Events.Insert(calendarId, calEvent).Do()
 
 	if err != nil {
 		fmt.Printf("Unable to create event: %v\n", err)
 		return
 	}
 
-	fmt.Printf("Event created. Link to event : %s\n", event.HtmlLink)
+	fmt.Printf("Event created. Link to event : %s\n", calEvent.HtmlLink)
 	return
 }
 
