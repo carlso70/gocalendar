@@ -10,7 +10,6 @@ import (
 	"os"
 	"os/user"
 	"path/filepath"
-	"strconv"
 	"time"
 
 	calUtil "github.com/carlso70/gocalendar/calendarutils"
@@ -132,13 +131,13 @@ func add(srv *calendar.Service) {
 	// ask for startDate input
 	startDate := calUtil.NewYmdhmsl()
 	var start time.Time
-	startDate.Year := climenu.GetText("Enter event year start", "")
-	startDate.Month := climenu.GetText("Enter event month start", "")
-	startDate.Day := climenu.GetText("Enter event day start", "")
-	startDate.Hour := climenu.GetText("Enter event hour start", "")
-	startDate.Minute := climenu.GetText("Enter event minute start", "")
-	startDate.Second := climenu.GetText("Enter event second start", "")
-	startDate.Nsec := "0"
+	startDate.Year = climenu.GetText("Enter event year start", "")
+	startDate.Month = climenu.GetText("Enter event month start", "")
+	startDate.Day = climenu.GetText("Enter event day start", "")
+	startDate.Hour = climenu.GetText("Enter event hour start", "")
+	startDate.Minute = climenu.GetText("Enter event minute start", "")
+	startDate.Second = climenu.GetText("Enter event second start", "")
+	startDate.Nsec = "0"
 
 	start, err = calUtil.ParseDate(startDate)
 	if err != nil {
@@ -164,13 +163,13 @@ func add(srv *calendar.Service) {
 	// ask for endDate input
 	endDate := calUtil.NewYmdhmsl()
 	var end time.Time
-	endDate.Year := climenu.GetText("Enter event year end", "")
-	endDate.Month := climenu.GetText("Enter event month end", "")
-	endDate.Day := climenu.GetText("Enter event day end", "")
-	endDate.Hour := climenu.GetText("Enter event hour end", "")
-	endDate.Minute := climenu.GetText("Enter event minute end", "")
-	endDate.Second := climenu.GetText("Enter event second end", "")
-	endDate.Nsec := "0"
+	endDate.Year = climenu.GetText("Enter event year end", "")
+	endDate.Month = climenu.GetText("Enter event month end", "")
+	endDate.Day = climenu.GetText("Enter event day end", "")
+	endDate.Hour = climenu.GetText("Enter event hour end", "")
+	endDate.Minute = climenu.GetText("Enter event minute end", "")
+	endDate.Second = climenu.GetText("Enter event second end", "")
+	endDate.Nsec = "0"
 
 	end, err = calUtil.ParseDate(endDate)
 	if err != nil {
