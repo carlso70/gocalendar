@@ -191,7 +191,10 @@ func add(srv *calendar.Service) {
 	}
 	endEventDateTime.TimeZone = timeZone
 
-	calEvent, err := srv.Events.Insert(calendarID, calEvent).Do()
+	calEvent.Start = startEventDateTime
+	calEvent.End = endEventDateTime
+
+	calEvent, err = srv.Events.Insert(calendarID, calEvent).Do()
 
 	if err != nil {
 		fmt.Printf("Unable to create event: %v\n", err)
