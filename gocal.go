@@ -23,12 +23,13 @@ import (
 // getClient uses a Context and Config to retrieve a Token
 // then generate a Client. It returns the generated Client.
 func getClient(ctx context.Context, config *oauth2.Config) *http.Client {
-	cacheFile, err := tokenCacheFile()
-	if err != nil {
+	var err error
+	var cacheFile string
+	if cacheFile, err = tokenCacheFile(); err != nil {
 		log.Fatalf("Unable to get path to cached credential file. %v", err)
 	}
-	tok, err := tokenFromFile(cacheFile)
-	if err != nil {
+	var tok *oauth2.Token
+	if tok, err = tokenFromFile(cacheFile); err != nil {
 		tok = getTokenFromWeb(config)
 		saveToken(cacheFile, tok)
 	}
@@ -38,17 +39,18 @@ func getClient(ctx context.Context, config *oauth2.Config) *http.Client {
 // getTokenFromWeb uses Config to request a Token.
 // It returns the retrieved Token.
 func getTokenFromWeb(config *oauth2.Config) *oauth2.Token {
+	var tok *oauth2.Token
 	authURL := config.AuthCodeURL("state-token", oauth2.AccessTypeOffline)
 	fmt.Printf("Go to the following link in your browser then type the "+
 		"authorization code: \n%v\n", authURL)
 
+	var err error
 	var code string
-	if _, err := fmt.Scan(&code); err != nil {
+	if _, err = fmt.Scan(&code); err != nil {
 		log.Fatalf("Unable to read authorization code %v", err)
 	}
 
-	tok, err := config.Exchange(oauth2.NoContext, code)
-	if err != nil {
+	if tok, err = config.Exchange(oauth2.NoContext, code); err != nil {
 		log.Fatalf("Unable to retrieve token from web %v", err)
 	}
 	return tok
@@ -57,8 +59,9 @@ func getTokenFromWeb(config *oauth2.Config) *oauth2.Token {
 // tokenCacheFile generates credential file path/filename.
 // It returns the generated credential path/filename.
 func tokenCacheFile() (string, error) {
-	usr, err := user.Current()
-	if err != nil {
+	var err error
+	var usr *user.User
+	if usr, err = user.Current(); err != nil {
 		return "", err
 	}
 	tokenCacheDir := filepath.Join(usr.HomeDir, ".credentials")
@@ -70,8 +73,9 @@ func tokenCacheFile() (string, error) {
 // tokenFromFile retrieves a Token from a given file path.
 // It returns the retrieved Token and any read error encountered.
 func tokenFromFile(file string) (*oauth2.Token, error) {
-	f, err := os.Open(file)
-	if err != nil {
+	var err error
+	var f *os.File
+	if f, err = os.Open(file); err != nil {
 		return nil, err
 	}
 	t := &oauth2.Token{}
@@ -83,13 +87,28 @@ func tokenFromFile(file string) (*oauth2.Token, error) {
 // saveToken uses a file path to create a file and store the
 // token in it.
 func saveToken(file string, token *oauth2.Token) {
+	var err error
+	var f *os.File
 	fmt.Printf("Saving credential file to: %s\n", file)
-	f, err := os.Create(file)
-	if err != nil {
+	if f, err = os.Create(file); err != nil {
 		log.Fatalf("Unable to cache oauth token: %v", err)
 	}
 	defer f.Close()
 	json.NewEncoder(f).Encode(token)
+}
+
+func getDateTime(timeZone string) (*calendar.EventDateTime, error) {
+	data := calUtil.NewYmdhmsl()
+	data.Year = climenu.GetText("Enter year", "")
+	data.Month = climenu.GetText("Enter month", "")
+	data.Day = climenu.GetText("Enter day", "")
+	data.Hour = climenu.GetText("Enter hour", "")
+	data.Minute = climenu.GetText("Enter minute", "")
+	data.Second = climenu.GetText("Enter second", "")
+	data.Nsec = "0"
+	data.Loc = timeZone
+	res, err := calUtil.ConvertYmdhmsl(data)
+	return res, err
 }
 
 func add(srv *calendar.Service) {
@@ -99,7 +118,7 @@ func add(srv *calendar.Service) {
 		fmt.Println("No valid calendars found. Event creation cancelled")
 		return
 	}
-	calendarID := IDs[0].Id
+	calID := IDs[0].Id
 
 	if len(IDs) > 1 {
 		idMenu := climenu.NewButtonMenu("", "Select a calendar")
@@ -108,7 +127,7 @@ func add(srv *calendar.Service) {
 			idMenu.AddMenuItem(id, id)
 		}
 		esc := false
-		calendarID, esc = idMenu.Run()
+		calID, esc = idMenu.Run()
 		if esc {
 			fmt.Println("Escape character detected. Event creation cancelled.")
 			return
@@ -121,39 +140,19 @@ func add(srv *calendar.Service) {
 	calEvent.Description = climenu.GetText("Enter event description", "")
 	timeZone := climenu.GetText("Enter event time zone (leave blank for calendar's time zone)", "")
 	if timeZone == "" {
-		cal, err := srv.Calendars.Get(calendarID).Do()
-		if err != nil {
+		if cal, err := srv.Calendars.Get(calID).Do(); err != nil {
 			timeZone = cal.TimeZone
 		}
 	}
 
-	// ask for startDate input
-	startDate := calUtil.NewYmdhmsl()
-	startDate.Year = climenu.GetText("Enter event year start", "")
-	startDate.Month = climenu.GetText("Enter event month start", "")
-	startDate.Day = climenu.GetText("Enter event day start", "")
-	startDate.Hour = climenu.GetText("Enter event hour start", "")
-	startDate.Minute = climenu.GetText("Enter event minute start", "")
-	startDate.Second = climenu.GetText("Enter event second start", "")
-	startDate.Nsec = "0"
-	startDate.Loc = timeZone
+	if calEvent.Start, err = getDateTime(timeZone); err != nil {
+		fmt.Println("An error ocurred. Event creation cancelled.")
+	}
+	if calEvent.End, err = getDateTime(timeZone); err != nil {
+		fmt.Println("An error ocurred. Event creation cancelled.")
+	}
 
-	// ask for endDate input
-	endDate := calUtil.NewYmdhmsl()
-	endDate.Year = climenu.GetText("Enter event year end", "")
-	endDate.Month = climenu.GetText("Enter event month end", "")
-	endDate.Day = climenu.GetText("Enter event day end", "")
-	endDate.Hour = climenu.GetText("Enter event hour end", "")
-	endDate.Minute = climenu.GetText("Enter event minute end", "")
-	endDate.Second = climenu.GetText("Enter event second end", "")
-	endDate.Nsec = "0"
-	endDate.Loc = timeZone
-
-	calEvent, err = calUtil.AddTime(calEvent, startDate, endDate)
-
-	calEvent, err = srv.Events.Insert(calendarID, calEvent).Do()
-
-	if err != nil {
+	if calEvent, err = srv.Events.Insert(calID, calEvent).Do(); err != nil {
 		fmt.Printf("Unable to create event: %v\n", err)
 		return
 	}
@@ -169,7 +168,7 @@ func remove(srv *calendar.Service) {
 		fmt.Println("No valid calendars found. Event creation cancelled")
 		return
 	}
-	calendarID := IDs[0].Id
+	calID := IDs[0].Id
 
 	if len(IDs) > 1 {
 		idMenu := climenu.NewButtonMenu("", "Select a command")
@@ -178,7 +177,7 @@ func remove(srv *calendar.Service) {
 			idMenu.AddMenuItem(id, id)
 		}
 		esc := false
-		calendarID, esc = idMenu.Run()
+		calID, esc = idMenu.Run()
 		if esc {
 			fmt.Println("Escape character detected. Event creation cancelled.")
 			return
@@ -188,7 +187,7 @@ func remove(srv *calendar.Service) {
 	query := climenu.GetText("Search", "")
 
 	var pageToken string
-	apiCall := srv.Events.List(calendarID).MaxResults(9).PageToken(pageToken)
+	apiCall := srv.Events.List(calID).MaxResults(9).PageToken(pageToken)
 	eventsList, _ := apiCall.Q(query).Do()
 	initialPage := pageToken
 
@@ -204,18 +203,18 @@ func remove(srv *calendar.Service) {
 		}
 		option, esc := resultMenu.Run()
 		if esc {
-			continue
+			break
 		}
 		switch option {
 		case "nextPage":
 			pageToken = eventsList.NextPageToken
-			apiCall := srv.Events.List(calendarID).MaxResults(9).PageToken(pageToken)
+			apiCall := srv.Events.List(calID).MaxResults(9).PageToken(pageToken)
 			eventsList, err = apiCall.Q(query).Do()
 			if pageToken == "" {
 				break
 			}
 			if err != nil {
-				log.Fatalf("err != nil, page retrieval: %v\n", err)
+				log.Fatalf("error in page retrieval: %v\n", err)
 			}
 		case "cancel":
 			remove(srv)
@@ -223,14 +222,14 @@ func remove(srv *calendar.Service) {
 		case "":
 			log.Fatalf("Error selecting option: %v\n", err)
 		default:
-			var selected *calendar.Event
+			var sel *calendar.Event
 			for i, item := range eventsList.Items {
 				if item.Id == option {
-					selected = eventsList.Items[i]
+					sel = eventsList.Items[i]
 					break
 				}
 			}
-			confirmMenu := climenu.NewButtonMenu(selected.Summary, "Confirm deletion")
+			confirmMenu := climenu.NewButtonMenu(sel.Summary, "Confirm deletion")
 			confirmMenu.AddMenuItem("Delete", "delete")
 			confirmMenu.AddMenuItem("Cancel", "cancel")
 			confirmation, esc := confirmMenu.Run()
@@ -241,11 +240,10 @@ func remove(srv *calendar.Service) {
 			case "cancel":
 				continue
 			case "delete":
-				err := srv.Events.Delete(calendarID, selected.Id).Do()
-				if err != nil {
+				if err := srv.Events.Delete(calID, sel.Id).Do(); err != nil {
 					log.Fatalf("Unable to delete event. %v\n", err)
 				}
-				fmt.Printf("Event deleted: %s\n", selected.Summary)
+				fmt.Printf("Event deleted: %s\n", sel.Summary)
 				return
 			default:
 				fmt.Println("Didn't register input. Cancelling...")
@@ -262,7 +260,7 @@ func edit(srv *calendar.Service) {
 		fmt.Println("No valid calendars found. Event creation cancelled")
 		return
 	}
-	calendarID := IDs[0].Id
+	calID := IDs[0].Id
 
 	if len(IDs) > 1 {
 		idMenu := climenu.NewButtonMenu("", "Select a command")
@@ -271,7 +269,7 @@ func edit(srv *calendar.Service) {
 			idMenu.AddMenuItem(id, id)
 		}
 		esc := false
-		calendarID, esc = idMenu.Run()
+		calID, esc = idMenu.Run()
 		if esc {
 			fmt.Println("Escape character detected. Event creation cancelled.")
 			return
@@ -281,7 +279,7 @@ func edit(srv *calendar.Service) {
 	query := climenu.GetText("Search", "")
 
 	var pageToken string
-	apiCall := srv.Events.List(calendarID).MaxResults(9).PageToken(pageToken)
+	apiCall := srv.Events.List(calID).MaxResults(9).PageToken(pageToken)
 	eventsList, _ := apiCall.Q(query).Do()
 	initialPage := pageToken
 
@@ -302,13 +300,13 @@ func edit(srv *calendar.Service) {
 		switch option {
 		case "nextPage":
 			pageToken = eventsList.NextPageToken
-			apiCall := srv.Events.List(calendarID).MaxResults(9).PageToken(pageToken)
+			apiCall := srv.Events.List(calID).MaxResults(9).PageToken(pageToken)
 			eventsList, err = apiCall.Q(query).Do()
 			if pageToken == "" {
 				break
 			}
 			if err != nil {
-				log.Fatalf("err != nil, page retrieval: %v\n", err)
+				log.Fatalf("error in page retrieval: %v\n", err)
 			}
 		case "cancel":
 			remove(srv)
@@ -316,15 +314,15 @@ func edit(srv *calendar.Service) {
 		case "":
 			log.Fatalf("Error selecting option: %v\n", err)
 		default:
-			var selected *calendar.Event
+			var sel *calendar.Event
 			for i, item := range eventsList.Items {
 				if item.Id == option {
-					selected = eventsList.Items[i]
+					sel = eventsList.Items[i]
 					break
 				}
 			}
 
-			editMenu := climenu.NewButtonMenu(selected.Summary, "Choose option to edit")
+			editMenu := climenu.NewButtonMenu(sel.Summary, "Choose option to edit")
 
 			idList := []string{
 				"summary",
@@ -334,45 +332,57 @@ func edit(srv *calendar.Service) {
 				"end",
 				"zone",
 			}
-			editMenu.AddMenuItem("Summary       | "+selected.Summary, idList[0])
-			editMenu.AddMenuItem("Location      | "+selected.Location, idList[1])
-			editMenu.AddMenuItem("Description   | "+selected.Description, idList[2])
-			editMenu.AddMenuItem("StartDateTime | "+selected.Start.DateTime, idList[3])
-			editMenu.AddMenuItem("EndDateTime   | "+selected.End.DateTime, idList[4])
-			editMenu.AddMenuItem("Time Zone     | "+selected.Start.TimeZone, idList[5])
+			editMenu.AddMenuItem("Summary     | "+sel.Summary, idList[0])
+			editMenu.AddMenuItem("Location    | "+sel.Location, idList[1])
+			editMenu.AddMenuItem("Description | "+sel.Description, idList[2])
+			if sel.Start.DateTime == "" {
+				editMenu.AddMenuItem("Start date  | "+sel.Start.Date, idList[3])
+			} else {
+				editMenu.AddMenuItem("Start time  | "+sel.Start.DateTime, idList[3])
+			}
+			if sel.End.DateTime == "" {
+				editMenu.AddMenuItem("End date    | "+sel.End.Date, idList[4])
+			} else {
+				editMenu.AddMenuItem("End time    | "+sel.End.DateTime, idList[4])
+			}
+			editMenu.AddMenuItem("Time zone   | "+sel.Start.TimeZone, idList[5])
 			editMenu.AddMenuItem("Cancel", "cancel")
 			choice, _ := editMenu.Run()
 
 			switch choice {
 			case "summary":
-				selected.Summary = climenu.GetText("Enter new Summary", "")
+				sel.Summary = climenu.GetText("Enter new Summary", "")
 			case "loc":
-				selected.Location = climenu.GetText("Enter new Location", "")
+				sel.Location = climenu.GetText("Enter new Location", "")
 			case "desc":
-				selected.Description = climenu.GetText("Enter new Description", "")
+				sel.Description = climenu.GetText("Enter new Description", "")
 			case "start":
-				date := climenu.GetText("Enter new Start Date (YYYY-MM-DD)", "")
-				time := climenu.GetText("Enter new Start Time (HH:mm:ss)", "")
-				selected.Start = &calendar.EventDateTime{
-					DateTime: fmt.Sprintf("%sT%s", date, time),
-					TimeZone: selected.Start.TimeZone,
+				if sel.Start, err = getDateTime(sel.Start.TimeZone); err != nil {
+					fmt.Println("An error ocurred. Event creation cancelled.")
 				}
 			case "end":
-				date := climenu.GetText("Enter new End Date (YYYY-MM-DD)", "")
-				time := climenu.GetText("Enter new End Time (HH:mm:ss)", "")
-				selected.End = &calendar.EventDateTime{
-					DateTime: fmt.Sprintf("%sT%s", date, time),
-					TimeZone: selected.End.TimeZone,
+				if sel.End, err = getDateTime(sel.End.TimeZone); err != nil {
+					fmt.Println("An error ocurred. Event creation cancelled.")
 				}
 			case "zone":
-				selected.Start.TimeZone = climenu.GetText("Enter new Time Zone", "")
-				selected.End.TimeZone = selected.Start.TimeZone
+				timeZone := climenu.GetText("Enter new Time Zone", "")
+				if timeZone == "" {
+					if cal, err := srv.Calendars.Get(calID).Do(); err != nil {
+						timeZone = cal.TimeZone
+					}
+				}
+				sel.Start.TimeZone = timeZone
+				sel.End.TimeZone = timeZone
 			default:
 				fmt.Println("Cancelling...")
 				return
 			}
-			event, err := srv.Events.Update(calendarID, selected.Id, selected).Do()
-			if err != nil {
+			var event *calendar.Event
+			fmt.Printf("%+v\n", sel.Reminders)
+			for _, z := range sel.Reminders.Overrides {
+				fmt.Printf("%+v\n", z)
+			}
+			if event, err = srv.Events.Update(calID, sel.Id, sel).Do(); err != nil {
 				log.Fatalf("Unable to update event. %s\n", err)
 			}
 
@@ -390,7 +400,7 @@ func view(srv *calendar.Service) {
 		fmt.Println("No valid calendars found. Event creation cancelled")
 		return
 	}
-	calendarID := IDs[0].Id
+	calID := IDs[0].Id
 
 	if len(IDs) > 1 {
 		idMenu := climenu.NewButtonMenu("", "Select a command")
@@ -399,7 +409,7 @@ func view(srv *calendar.Service) {
 			idMenu.AddMenuItem(id, id)
 		}
 		esc := false
-		calendarID, esc = idMenu.Run()
+		calID, esc = idMenu.Run()
 		if esc {
 			fmt.Println("Escape character detected. Event creation cancelled.")
 			return
@@ -409,7 +419,7 @@ func view(srv *calendar.Service) {
 	query := climenu.GetText("Search", "")
 
 	var pageToken string
-	apiCall := srv.Events.List(calendarID).MaxResults(9).PageToken(pageToken)
+	apiCall := srv.Events.List(calID).MaxResults(9).PageToken(pageToken)
 	eventsList, _ := apiCall.Q(query).Do()
 	initialPage := pageToken
 
@@ -431,13 +441,12 @@ func view(srv *calendar.Service) {
 		switch option {
 		case "nextPage":
 			pageToken = eventsList.NextPageToken
-			apiCall := srv.Events.List(calendarID).MaxResults(9).PageToken(pageToken)
-			eventsList, err = apiCall.Q(query).Do()
+			apiCall := srv.Events.List(calID).MaxResults(9).PageToken(pageToken)
+			if eventsList, err = apiCall.Q(query).Do(); err != nil {
+				log.Fatalf("error in page retrieval: %v\n", err)
+			}
 			if pageToken == "" {
 				break
-			}
-			if err != nil {
-				log.Fatalf("err != nil, page retrieval: %v\n", err)
 			}
 		case "cancel":
 			remove(srv)
@@ -445,26 +454,26 @@ func view(srv *calendar.Service) {
 		case "":
 			log.Fatalf("Error selecting option: %v\n", err)
 		default:
-			var selected *calendar.Event
+			var sel *calendar.Event
 			for i, item := range eventsList.Items {
 				if item.Id == option {
-					selected = eventsList.Items[i]
+					sel = eventsList.Items[i]
 					break
 				}
 			}
 			var when string
 			// If the DateTime is an empty string the Event is an all-day Event.
 			// So only Date is available.
-			if selected.Start.DateTime != "" {
-				when = selected.Start.DateTime
+			if sel.Start.DateTime != "" {
+				when = sel.Start.DateTime
 			} else {
-				when = selected.Start.Date
+				when = sel.Start.Date
 			}
-			fmt.Printf("Summary:\n\t%s\n", selected.Summary)
-			fmt.Printf("Location:\n\t%s\n", selected.Location)
-			fmt.Printf("Description:\n\t%s\n", selected.Description)
+			fmt.Printf("Summary:\n\t%s\n", sel.Summary)
+			fmt.Printf("Location:\n\t%s\n", sel.Location)
+			fmt.Printf("Description:\n\t%s\n", sel.Description)
 			fmt.Printf("When:\n\t%s\n", when)
-			fmt.Printf("Link to event:\n\t%s\n", selected.HtmlLink)
+			fmt.Printf("Link to event:\n\t%s\n", sel.HtmlLink)
 			return
 		}
 	}
@@ -474,21 +483,23 @@ func view(srv *calendar.Service) {
 func main() {
 	ctx := context.Background()
 
+	var err error
 	var secretPath = os.Getenv("GOPATH") + "/src/github.com/carlso70/gocalendar/client_secret.json"
-	b, err := ioutil.ReadFile(secretPath)
-	if err != nil {
+	var b []byte
+	if b, err = ioutil.ReadFile(secretPath); err != nil {
 		log.Fatalf("Unable to read client secret file: %v", err)
 	}
 
-	config, err := google.ConfigFromJSON(b, calendar.CalendarScope)
+	var config *oauth2.Config
+	config, err = google.ConfigFromJSON(b, calendar.CalendarScope)
 	if err != nil {
 		log.Fatalf("Unable to parse client secret file to config: %v", err)
 	}
 
 	client := getClient(ctx, config)
 
-	srv, err := calendar.New(client)
-	if err != nil {
+	var srv *calendar.Service
+	if srv, err = calendar.New(client); err != nil {
 		log.Fatalf("Unable to retrieve calendar Client %v", err)
 	}
 
