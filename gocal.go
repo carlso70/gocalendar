@@ -97,6 +97,81 @@ func saveToken(file string, token *oauth2.Token) {
 	json.NewEncoder(f).Encode(token)
 }
 
+func getCalendarID(srv *calendar.Service, cancel string) (string, error) {
+	var cl *calendar.CalendarList
+	var err error
+	if cl, err = srv.CalendarList.List().Do(); err != nil {
+		fmt.Println("Error while fetching available calendars.")
+		fmt.Println(cancel)
+		return "", fmt.Errorf("no valid calendars found")
+	}
+	IDs := cl.Items
+	if len(IDs) <= 0 || err != nil {
+		fmt.Println("No valid calendars found.")
+		fmt.Println(cancel)
+		return "", fmt.Errorf("no valid calendars found")
+	}
+	calID := IDs[0].Id
+
+	if len(IDs) > 1 {
+		idMenu := climenu.NewButtonMenu("", "Select a calendar")
+		for _, entry := range IDs {
+			id := entry.Id
+			idMenu.AddMenuItem(id, id)
+		}
+		esc := false
+		calID, esc = idMenu.Run()
+		if esc {
+			fmt.Println(cancel)
+			return "", fmt.Errorf("calendar select cancelled")
+		}
+	}
+	return calID, nil
+}
+
+func listSeek(srv *calendar.Service, calID string,
+	action func(srv *calendar.Service, calID string, sel *calendar.Event)) {
+	var pTok, iniTok string
+	query := climenu.GetText("Enter search query", "")
+	var esc error
+	for esc == nil {
+		apiCall := srv.Events.List(calID).MaxResults(9).PageToken(pTok)
+		events, _ := apiCall.Q(query).Do()
+		resultMenu := climenu.NewButtonMenu("", "Choose a result")
+		for _, foundEvent := range events.Items {
+			resultMenu.AddMenuItem(foundEvent.Summary, foundEvent.Id)
+		}
+		if pTok != events.NextPageToken && events.NextPageToken != iniTok {
+			resultMenu.AddMenuItem("Next page", "nextPage")
+		} else if events.NextPageToken != pTok && events.NextPageToken == iniTok &&
+			len(events.Items) > 0 {
+			resultMenu.AddMenuItem("Reset page", "nextPage")
+		}
+		option, esc := resultMenu.Run()
+		if esc {
+			break
+		}
+		switch option {
+		case "nextPage":
+			pTok = events.NextPageToken
+		case "cancel":
+			return
+		case "":
+			log.Fatalf("Error selecting option: %v\n", esc)
+		default:
+			var sel *calendar.Event
+			for i, item := range events.Items {
+				if item.Id == option {
+					sel = events.Items[i]
+					break
+				}
+			}
+			action(srv, calID, sel)
+			return
+		}
+	}
+}
+
 func getDateTime(timeZone string) (*calendar.EventDateTime, error) {
 	data := calUtil.NewYmdhmsl()
 	data.Year = climenu.GetText("Enter year", "")
@@ -112,26 +187,11 @@ func getDateTime(timeZone string) (*calendar.EventDateTime, error) {
 }
 
 func add(srv *calendar.Service) {
-	cl, err := srv.CalendarList.List().Do()
-	IDs := cl.Items
-	if len(IDs) <= 0 || err != nil {
-		fmt.Println("No valid calendars found. Event creation cancelled")
+	var calID string
+	var err error
+	c := "Event creation cancelling..."
+	if calID, err = getCalendarID(srv, c); err != nil {
 		return
-	}
-	calID := IDs[0].Id
-
-	if len(IDs) > 1 {
-		idMenu := climenu.NewButtonMenu("", "Select a calendar")
-		for _, entry := range IDs {
-			id := entry.Id
-			idMenu.AddMenuItem(id, id)
-		}
-		esc := false
-		calID, esc = idMenu.Run()
-		if esc {
-			fmt.Println("Escape character detected. Event creation cancelled.")
-			return
-		}
 	}
 
 	calEvent := &calendar.Event{}
@@ -157,334 +217,182 @@ func add(srv *calendar.Service) {
 		return
 	}
 
-	fmt.Printf("Event created. Link to event : %s\n", calEvent.HtmlLink)
+	fmt.Printf("Event created. Link to event: %s\n", calEvent.HtmlLink)
 	return
 }
 
 func remove(srv *calendar.Service) {
-	cl, err := srv.CalendarList.List().Do()
-	IDs := cl.Items
-	if len(IDs) <= 0 || err != nil {
-		fmt.Println("No valid calendars found. Event creation cancelled")
+	var calID string
+	var err error
+	c := "Event deletion cancelling..."
+	if calID, err = getCalendarID(srv, c); err != nil {
 		return
 	}
-	calID := IDs[0].Id
 
-	if len(IDs) > 1 {
-		idMenu := climenu.NewButtonMenu("", "Select a command")
-		for _, entry := range IDs {
-			id := entry.Id
-			idMenu.AddMenuItem(id, id)
-		}
-		esc := false
-		calID, esc = idMenu.Run()
+	action := func(srv *calendar.Service, calID string, sel *calendar.Event) {
+		confirmMenu := climenu.NewButtonMenu("Summary: "+sel.Summary, "Confirm deletion")
+		confirmMenu.AddMenuItem("Delete", "delete")
+		confirmMenu.AddMenuItem("Cancel", "cancel")
+		confirmation, esc := confirmMenu.Run()
 		if esc {
-			fmt.Println("Escape character detected. Event creation cancelled.")
 			return
 		}
-	}
-
-	query := climenu.GetText("Search", "")
-
-	var pageToken string
-	apiCall := srv.Events.List(calID).MaxResults(9).PageToken(pageToken)
-	eventsList, _ := apiCall.Q(query).Do()
-	initialPage := pageToken
-
-	for {
-		resultMenu := climenu.NewButtonMenu("", "Choose a result")
-		for _, foundEvent := range eventsList.Items {
-			resultMenu.AddMenuItem(foundEvent.Summary, foundEvent.Id)
-		}
-		if pageToken != eventsList.NextPageToken && eventsList.NextPageToken != initialPage {
-			resultMenu.AddMenuItem("Next Page", "nextPage")
-		} else if eventsList.NextPageToken == initialPage {
-			resultMenu.AddMenuItem("Reset", "nextPage")
-		}
-		option, esc := resultMenu.Run()
-		if esc {
-			break
-		}
-		switch option {
-		case "nextPage":
-			pageToken = eventsList.NextPageToken
-			apiCall := srv.Events.List(calID).MaxResults(9).PageToken(pageToken)
-			eventsList, err = apiCall.Q(query).Do()
-			if pageToken == "" {
-				break
-			}
-			if err != nil {
-				log.Fatalf("error in page retrieval: %v\n", err)
-			}
-		case "cancel":
-			remove(srv)
-			return
-		case "":
-			log.Fatalf("Error selecting option: %v\n", err)
-		default:
-			var sel *calendar.Event
-			for i, item := range eventsList.Items {
-				if item.Id == option {
-					sel = eventsList.Items[i]
-					break
-				}
-			}
-			confirmMenu := climenu.NewButtonMenu(sel.Summary, "Confirm deletion")
-			confirmMenu.AddMenuItem("Delete", "delete")
-			confirmMenu.AddMenuItem("Cancel", "cancel")
-			confirmation, esc := confirmMenu.Run()
-			if esc {
-				continue
-			}
-			switch confirmation {
-			case "cancel":
-				continue
-			case "delete":
-				if err := srv.Events.Delete(calID, sel.Id).Do(); err != nil {
-					log.Fatalf("Unable to delete event. %v\n", err)
-				}
-				fmt.Printf("Event deleted: %s\n", sel.Summary)
+		switch confirmation {
+		case "delete":
+			if err := srv.Events.Delete(calID, sel.Id).Do(); err != nil {
+				log.Printf("Unable to delete event. %v\n", err)
 				return
-			default:
-				fmt.Println("Didn't register input. Cancelling...")
-				continue
 			}
+			fmt.Printf("Event deleted: %s\n", sel.Summary)
+			return
+		default:
+			fmt.Println("Cancelling...")
+			return
 		}
 	}
+
+	listSeek(srv, calID, action)
 }
 
 func edit(srv *calendar.Service) {
-	cl, err := srv.CalendarList.List().Do()
-	IDs := cl.Items
-	if len(IDs) <= 0 || err != nil {
-		fmt.Println("No valid calendars found. Event creation cancelled")
+	var calID string
+	var err error
+	c := "Event edit cancelling..."
+	if calID, err = getCalendarID(srv, c); err != nil {
 		return
 	}
-	calID := IDs[0].Id
 
-	if len(IDs) > 1 {
-		idMenu := climenu.NewButtonMenu("", "Select a command")
-		for _, entry := range IDs {
-			id := entry.Id
-			idMenu.AddMenuItem(id, id)
-		}
-		esc := false
-		calID, esc = idMenu.Run()
-		if esc {
-			fmt.Println("Escape character detected. Event creation cancelled.")
-			return
-		}
-	}
+	action := func(srv *calendar.Service, calID string, sel *calendar.Event) {
+		editMenu := climenu.NewButtonMenu(sel.Summary, "Choose option to edit")
 
-	query := climenu.GetText("Search", "")
+		idList := []string{
+			"summary",
+			"loc",
+			"desc",
+			"start",
+			"end",
+			"zone",
+		}
+		editMenu.AddMenuItem("Summary     | "+sel.Summary, idList[0])
+		editMenu.AddMenuItem("Location    | "+sel.Location, idList[1])
+		editMenu.AddMenuItem("Description | "+sel.Description, idList[2])
+		if sel.Start.DateTime == "" {
+			editMenu.AddMenuItem("Start date  | "+sel.Start.Date, idList[3])
+		} else {
+			editMenu.AddMenuItem("Start time  | "+sel.Start.DateTime, idList[3])
+		}
+		if sel.End.DateTime == "" {
+			editMenu.AddMenuItem("End date    | "+sel.End.Date, idList[4])
+		} else {
+			editMenu.AddMenuItem("End time    | "+sel.End.DateTime, idList[4])
+		}
+		editMenu.AddMenuItem("Time zone   | "+sel.Start.TimeZone, idList[5])
+		editMenu.AddMenuItem("Cancel", "cancel")
+		choice, _ := editMenu.Run()
 
-	var pageToken string
-	apiCall := srv.Events.List(calID).MaxResults(9).PageToken(pageToken)
-	eventsList, _ := apiCall.Q(query).Do()
-	initialPage := pageToken
-
-	for {
-		resultMenu := climenu.NewButtonMenu("", "Choose a result")
-		for _, foundEvent := range eventsList.Items {
-			resultMenu.AddMenuItem(foundEvent.Summary, foundEvent.Id)
-		}
-		if pageToken != eventsList.NextPageToken && eventsList.NextPageToken != initialPage {
-			resultMenu.AddMenuItem("Next Page", "nextPage")
-		} else if eventsList.NextPageToken == initialPage {
-			resultMenu.AddMenuItem("Reset", "nextPage")
-		}
-		option, esc := resultMenu.Run()
-		if esc {
-			continue
-		}
-		switch option {
-		case "nextPage":
-			pageToken = eventsList.NextPageToken
-			apiCall := srv.Events.List(calID).MaxResults(9).PageToken(pageToken)
-			eventsList, err = apiCall.Q(query).Do()
-			if pageToken == "" {
-				break
+		switch choice {
+		case "summary":
+			sel.Summary = climenu.GetText("Enter new Summary", "")
+		case "loc":
+			sel.Location = climenu.GetText("Enter new Location", "")
+		case "desc":
+			sel.Description = climenu.GetText("Enter new Description", "")
+		case "start":
+			if sel.Start, err = getDateTime(sel.Start.TimeZone); err != nil {
+				fmt.Println("An error ocurred. Event creation cancelled.")
 			}
-			if err != nil {
-				log.Fatalf("error in page retrieval: %v\n", err)
+		case "end":
+			if sel.End, err = getDateTime(sel.End.TimeZone); err != nil {
+				fmt.Println("An error ocurred. Event creation cancelled.")
 			}
-		case "cancel":
-			remove(srv)
-			return
-		case "":
-			log.Fatalf("Error selecting option: %v\n", err)
+		case "zone":
+			timeZone := climenu.GetText("Enter new Time Zone", "")
+			if timeZone == "" {
+				if cal, err := srv.Calendars.Get(calID).Do(); err != nil {
+					timeZone = cal.TimeZone
+				}
+			}
+			sel.Start.TimeZone = timeZone
+			sel.End.TimeZone = timeZone
 		default:
-			var sel *calendar.Event
-			for i, item := range eventsList.Items {
-				if item.Id == option {
-					sel = eventsList.Items[i]
-					break
-				}
-			}
-
-			editMenu := climenu.NewButtonMenu(sel.Summary, "Choose option to edit")
-
-			idList := []string{
-				"summary",
-				"loc",
-				"desc",
-				"start",
-				"end",
-				"zone",
-			}
-			editMenu.AddMenuItem("Summary     | "+sel.Summary, idList[0])
-			editMenu.AddMenuItem("Location    | "+sel.Location, idList[1])
-			editMenu.AddMenuItem("Description | "+sel.Description, idList[2])
-			if sel.Start.DateTime == "" {
-				editMenu.AddMenuItem("Start date  | "+sel.Start.Date, idList[3])
-			} else {
-				editMenu.AddMenuItem("Start time  | "+sel.Start.DateTime, idList[3])
-			}
-			if sel.End.DateTime == "" {
-				editMenu.AddMenuItem("End date    | "+sel.End.Date, idList[4])
-			} else {
-				editMenu.AddMenuItem("End time    | "+sel.End.DateTime, idList[4])
-			}
-			editMenu.AddMenuItem("Time zone   | "+sel.Start.TimeZone, idList[5])
-			editMenu.AddMenuItem("Cancel", "cancel")
-			choice, _ := editMenu.Run()
-
-			switch choice {
-			case "summary":
-				sel.Summary = climenu.GetText("Enter new Summary", "")
-			case "loc":
-				sel.Location = climenu.GetText("Enter new Location", "")
-			case "desc":
-				sel.Description = climenu.GetText("Enter new Description", "")
-			case "start":
-				if sel.Start, err = getDateTime(sel.Start.TimeZone); err != nil {
-					fmt.Println("An error ocurred. Event creation cancelled.")
-				}
-			case "end":
-				if sel.End, err = getDateTime(sel.End.TimeZone); err != nil {
-					fmt.Println("An error ocurred. Event creation cancelled.")
-				}
-			case "zone":
-				timeZone := climenu.GetText("Enter new Time Zone", "")
-				if timeZone == "" {
-					if cal, err := srv.Calendars.Get(calID).Do(); err != nil {
-						timeZone = cal.TimeZone
-					}
-				}
-				sel.Start.TimeZone = timeZone
-				sel.End.TimeZone = timeZone
-			default:
-				fmt.Println("Cancelling...")
-				return
-			}
-			var event *calendar.Event
-			fmt.Printf("%+v\n", sel.Reminders)
-			for _, z := range sel.Reminders.Overrides {
-				fmt.Printf("%+v\n", z)
-			}
-			if event, err = srv.Events.Update(calID, sel.Id, sel).Do(); err != nil {
-				log.Fatalf("Unable to update event. %s\n", err)
-			}
-
-			fmt.Printf("Event updated. Link to event : %s\n", event.HtmlLink)
+			fmt.Println("Cancelling...")
 			return
 		}
+		var event *calendar.Event
+		for _, z := range sel.Reminders.Overrides {
+			fmt.Printf("%+v\n", z)
+		}
+		if event, err = srv.Events.Update(calID, sel.Id, sel).Do(); err != nil {
+			log.Printf("Unable to update event. %s\n", err)
+			return
+		}
+
+		fmt.Printf("Event updated. Link to event: %s\n", event.HtmlLink)
+		return
 	}
+
+	listSeek(srv, calID, action)
 }
 
 func view(srv *calendar.Service) {
-
-	cl, err := srv.CalendarList.List().Do()
-	IDs := cl.Items
-	if len(IDs) <= 0 || err != nil {
-		fmt.Println("No valid calendars found. Event creation cancelled")
+	var calID string
+	var err error
+	c := "Event edit cancelling..."
+	if calID, err = getCalendarID(srv, c); err != nil {
 		return
 	}
-	calID := IDs[0].Id
 
-	if len(IDs) > 1 {
-		idMenu := climenu.NewButtonMenu("", "Select a command")
-		for _, entry := range IDs {
-			id := entry.Id
-			idMenu.AddMenuItem(id, id)
+	action := func(srv *calendar.Service, calID string, sel *calendar.Event) {
+		if sel.Summary != "" {
+			fmt.Printf("Summary     | %s\n", sel.Summary)
 		}
-		esc := false
-		calID, esc = idMenu.Run()
-		if esc {
-			fmt.Println("Escape character detected. Event creation cancelled.")
-			return
+		if sel.Location != "" {
+			fmt.Printf("Location    | %s\n", sel.Location)
 		}
-	}
-
-	query := climenu.GetText("Search", "")
-
-	var pageToken string
-	apiCall := srv.Events.List(calID).MaxResults(9).PageToken(pageToken)
-	eventsList, _ := apiCall.Q(query).Do()
-	initialPage := pageToken
-
-	for {
-		resultMenu := climenu.NewButtonMenu("", "Choose a result")
-		for _, foundEvent := range eventsList.Items {
-			resultMenu.AddMenuItem(foundEvent.Summary, foundEvent.Id)
+		if sel.Description != "" {
+			fmt.Printf("Description | %s\n", sel.Description)
 		}
-		if pageToken != eventsList.NextPageToken && eventsList.NextPageToken != initialPage {
-			resultMenu.AddMenuItem("Next Page", "nextPage")
-		} else if eventsList.NextPageToken == initialPage {
-			resultMenu.AddMenuItem("Reset", "nextPage")
-		}
-		option, esc := resultMenu.Run()
-		if esc {
-			fmt.Println("Escape character detected. Cancelling...")
-			break
-		}
-		switch option {
-		case "nextPage":
-			pageToken = eventsList.NextPageToken
-			apiCall := srv.Events.List(calID).MaxResults(9).PageToken(pageToken)
-			if eventsList, err = apiCall.Q(query).Do(); err != nil {
-				log.Fatalf("error in page retrieval: %v\n", err)
-			}
-			if pageToken == "" {
-				break
-			}
-		case "cancel":
-			remove(srv)
-			return
-		case "":
-			log.Fatalf("Error selecting option: %v\n", err)
-		default:
-			var sel *calendar.Event
-			for i, item := range eventsList.Items {
-				if item.Id == option {
-					sel = eventsList.Items[i]
-					break
-				}
-			}
-			var when string
+		if sel.Start != nil {
+			var start string
 			// If the DateTime is an empty string the Event is an all-day Event.
 			// So only Date is available.
 			if sel.Start.DateTime != "" {
-				when = sel.Start.DateTime
+				start = sel.Start.DateTime
 			} else {
-				when = sel.Start.Date
+				start = sel.Start.Date
+				fmt.Printf("Start       | %s\n", start)
 			}
-			fmt.Printf("Summary:\n\t%s\n", sel.Summary)
-			fmt.Printf("Location:\n\t%s\n", sel.Location)
-			fmt.Printf("Description:\n\t%s\n", sel.Description)
-			fmt.Printf("When:\n\t%s\n", when)
-			fmt.Printf("Link to event:\n\t%s\n", sel.HtmlLink)
-			return
 		}
+		if sel.End != nil {
+			var end string
+			// If the DateTime is an empty string the Event is an all-day Event.
+			// So only Date is available.
+			if sel.End.DateTime != "" {
+				end = sel.End.DateTime
+			} else {
+				end = sel.End.Date
+			}
+			fmt.Printf("End         | %s\n", end)
+		}
+		if sel.Visibility != "" {
+			fmt.Printf("Visibility  | %s\n", sel.Visibility)
+		}
+		if sel.Status != "" {
+			fmt.Printf("Status      | %s\n", sel.Status)
+		}
+		fmt.Printf("Link to event: %s\n", sel.HtmlLink)
+		return
 	}
-	return
+
+	listSeek(srv, calID, action)
 }
 
 func main() {
 	ctx := context.Background()
 
 	var err error
-	var secretPath = os.Getenv("GOPATH") + "/src/github.com/carlso70/gocalendar/client_secret.json"
+	var secretPath = os.Getenv("GOPATH") +
+		"/src/github.com/carlso70/gocalendar/client_secret.json"
 	var b []byte
 	if b, err = ioutil.ReadFile(secretPath); err != nil {
 		log.Fatalf("Unable to read client secret file: %v", err)
