@@ -214,12 +214,12 @@ func add(srv *calendar.Service, calID string) {
 		log.Fatalf("error while fetching calendar: %v\n", err)
 	}
 	timeZone := climenu.GetText("Enter event time zone", cal.TimeZone)
-	fmt.Printf("%s\n", goterm.Color(goterm.Bold("Enter event start details:"),
+	fmt.Printf("%s\n", goterm.Color(goterm.Bold("Enter event start details"),
 		goterm.GREEN))
 	if calEvent.Start, err = getDateTime(timeZone); err != nil {
 		fmt.Println("An error ocurred. Event creation cancelled.")
 	}
-	fmt.Printf("%s\n", goterm.Color(goterm.Bold("Enter event end details:"),
+	fmt.Printf("%s\n", goterm.Color(goterm.Bold("Enter event end details"),
 		goterm.GREEN))
 	if calEvent.End, err = getDateTime(timeZone); err != nil {
 		fmt.Println("An error ocurred. Event creation cancelled.")
@@ -262,7 +262,7 @@ func remove(srv *calendar.Service, calID string) {
 func edit(srv *calendar.Service, calID string) {
 	var err error
 	action := func(srv *calendar.Service, calID string, sel *calendar.Event) {
-		editMenu := climenu.NewButtonMenu(sel.Summary, "Choose option to edit")
+		editMenu := climenu.NewButtonMenu("", "Choose option to edit")
 
 		idList := []string{
 			"summary",
@@ -313,12 +313,10 @@ func edit(srv *calendar.Service, calID string) {
 			sel.Start.TimeZone = timeZone
 			sel.End.TimeZone = timeZone
 		default:
+			fmt.Println("No changes made.")
 			return
 		}
 		var event *calendar.Event
-		for _, z := range sel.Reminders.Overrides {
-			fmt.Printf("%+v\n", z)
-		}
 		if event, err = srv.Events.Update(calID, sel.Id, sel).Do(); err != nil {
 			log.Printf("Unable to update event. %s\n", err)
 			return
