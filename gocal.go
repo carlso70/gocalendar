@@ -178,13 +178,23 @@ func listSeek(srv *calendar.Service, calID string,
 
 func getDateTime(timeZone string) (*calendar.EventDateTime, error) {
 	data := calUtil.NewYmdhmsl()
-	data.Year = climenu.GetText("Enter year", "")
+	for data.Year != "" {
+		data.Year = climenu.GetText("Enter year", "")
+	}
 	data.Month = climenu.GetText("Enter month", "")
-	data.Day = climenu.GetText("Enter day", "")
+	if data.Month != "" {
+		data.Day = climenu.GetText("Enter day", "")
+	}
 	data.Hour = climenu.GetText("Enter hour", "")
-	data.Minute = climenu.GetText("Enter minute", "")
-	data.Second = climenu.GetText("Enter second", "")
-	data.Nsec = "0"
+	if data.Hour != "" {
+		data.Minute = climenu.GetText("Enter minute", "")
+		if data.Minute != "" {
+			data.Second = climenu.GetText("Enter second", "")
+			if data.Second != "" {
+				data.Nsec = climenu.GetText("Enter nanosecond", "")
+			}
+		}
+	}
 	data.Loc = timeZone
 	res, err := calUtil.ConvertYmdhmsl(data)
 	return res, err
@@ -196,8 +206,8 @@ func add(srv *calendar.Service, calID string) {
 	calEvent.Summary = climenu.GetText("Enter event summary", "")
 	calEvent.Location = climenu.GetText("Enter event location", "")
 	calEvent.Description = climenu.GetText("Enter event description", "")
-	timeZone := climenu.GetText("Enter event time zone (leave blank for calendar's time zone)", "")
-	if timeZone == "" {
+	timeZone := climenu.GetText("Enter event time zone", "calendar default")
+	if timeZone == "calendar default" {
 		if cal, err := srv.Calendars.Get(calID).Do(); err != nil {
 			timeZone = cal.TimeZone
 		}
@@ -290,8 +300,8 @@ func edit(srv *calendar.Service, calID string) {
 				fmt.Println("An error ocurred. Event creation cancelled.")
 			}
 		case "zone":
-			timeZone := climenu.GetText("Enter new Time Zone", "")
-			if timeZone == "" {
+			timeZone := climenu.GetText("Enter new time zone", "calendar default")
+			if timeZone == "calendar default" {
 				if cal, err := srv.Calendars.Get(calID).Do(); err != nil {
 					timeZone = cal.TimeZone
 				}
