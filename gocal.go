@@ -97,18 +97,16 @@ func saveToken(file string, token *oauth2.Token) {
 	json.NewEncoder(f).Encode(token)
 }
 
-func getCalendarID(srv *calendar.Service, cancel string) (string, error) {
+func getCalendarID(srv *calendar.Service) (string, error) {
 	var cl *calendar.CalendarList
 	var err error
 	if cl, err = srv.CalendarList.List().Do(); err != nil {
 		fmt.Println("Error while fetching available calendars.")
-		fmt.Println(cancel)
 		return "", fmt.Errorf("no valid calendars found")
 	}
 	IDs := cl.Items
 	if len(IDs) <= 0 || err != nil {
 		fmt.Println("No valid calendars found.")
-		fmt.Println(cancel)
 		return "", fmt.Errorf("no valid calendars found")
 	}
 	calID := IDs[0].Id
@@ -122,7 +120,6 @@ func getCalendarID(srv *calendar.Service, cancel string) (string, error) {
 		esc := false
 		calID, esc = idMenu.Run()
 		if esc {
-			fmt.Println(cancel)
 			return "", fmt.Errorf("calendar select cancelled")
 		}
 	}
@@ -135,11 +132,18 @@ func listSeek(srv *calendar.Service, calID string,
 	query := climenu.GetText("Enter search query", "")
 	var esc error
 	for esc == nil {
-		apiCall := srv.Events.List(calID).MaxResults(9).PageToken(pTok)
+		apiCall := srv.Events.List(calID).MaxResults(8).PageToken(pTok).
+			SingleEvents(true)
 		events, _ := apiCall.Q(query).Do()
 		resultMenu := climenu.NewButtonMenu("", "Choose a result")
 		for _, foundEvent := range events.Items {
-			resultMenu.AddMenuItem(foundEvent.Summary, foundEvent.Id)
+			if foundEvent.Summary != "" {
+				resultMenu.AddMenuItem(foundEvent.Summary, foundEvent.Id)
+			} else if foundEvent.Description != "" {
+				resultMenu.AddMenuItem(foundEvent.Description, foundEvent.Id)
+			} else {
+				resultMenu.AddMenuItem("id: "+foundEvent.Id, foundEvent.Id)
+			}
 		}
 		if pTok != events.NextPageToken && events.NextPageToken != iniTok {
 			resultMenu.AddMenuItem("Next page", "nextPage")
@@ -186,14 +190,8 @@ func getDateTime(timeZone string) (*calendar.EventDateTime, error) {
 	return res, err
 }
 
-func add(srv *calendar.Service) {
-	var calID string
+func add(srv *calendar.Service, calID string) {
 	var err error
-	c := "Event creation cancelling..."
-	if calID, err = getCalendarID(srv, c); err != nil {
-		return
-	}
-
 	calEvent := &calendar.Event{}
 	calEvent.Summary = climenu.GetText("Enter event summary", "")
 	calEvent.Location = climenu.GetText("Enter event location", "")
@@ -221,14 +219,7 @@ func add(srv *calendar.Service) {
 	return
 }
 
-func remove(srv *calendar.Service) {
-	var calID string
-	var err error
-	c := "Event deletion cancelling..."
-	if calID, err = getCalendarID(srv, c); err != nil {
-		return
-	}
-
+func remove(srv *calendar.Service, calID string) {
 	action := func(srv *calendar.Service, calID string, sel *calendar.Event) {
 		confirmMenu := climenu.NewButtonMenu("Summary: "+sel.Summary, "Confirm deletion")
 		confirmMenu.AddMenuItem("Delete", "delete")
@@ -246,7 +237,6 @@ func remove(srv *calendar.Service) {
 			fmt.Printf("Event deleted: %s\n", sel.Summary)
 			return
 		default:
-			fmt.Println("Cancelling...")
 			return
 		}
 	}
@@ -254,14 +244,8 @@ func remove(srv *calendar.Service) {
 	listSeek(srv, calID, action)
 }
 
-func edit(srv *calendar.Service) {
-	var calID string
+func edit(srv *calendar.Service, calID string) {
 	var err error
-	c := "Event edit cancelling..."
-	if calID, err = getCalendarID(srv, c); err != nil {
-		return
-	}
-
 	action := func(srv *calendar.Service, calID string, sel *calendar.Event) {
 		editMenu := climenu.NewButtonMenu(sel.Summary, "Choose option to edit")
 
@@ -315,7 +299,6 @@ func edit(srv *calendar.Service) {
 			sel.Start.TimeZone = timeZone
 			sel.End.TimeZone = timeZone
 		default:
-			fmt.Println("Cancelling...")
 			return
 		}
 		var event *calendar.Event
@@ -334,14 +317,7 @@ func edit(srv *calendar.Service) {
 	listSeek(srv, calID, action)
 }
 
-func view(srv *calendar.Service) {
-	var calID string
-	var err error
-	c := "Event edit cancelling..."
-	if calID, err = getCalendarID(srv, c); err != nil {
-		return
-	}
-
+func view(srv *calendar.Service, calID string) {
 	action := func(srv *calendar.Service, calID string, sel *calendar.Event) {
 		if sel.Summary != "" {
 			fmt.Printf("Summary     | %s\n", sel.Summary)
@@ -360,8 +336,8 @@ func view(srv *calendar.Service) {
 				start = sel.Start.DateTime
 			} else {
 				start = sel.Start.Date
-				fmt.Printf("Start       | %s\n", start)
 			}
+			fmt.Printf("Start       | %s\n", start)
 		}
 		if sel.End != nil {
 			var end string
@@ -411,15 +387,20 @@ func main() {
 		log.Fatalf("Unable to retrieve calendar Client %v", err)
 	}
 
+	var calID string
+	if calID, err = getCalendarID(srv); err != nil {
+		return
+	}
+
 	t := time.Now().Format(time.RFC3339)
-	events, err := srv.Events.List("primary").ShowDeleted(false).
+	events, err := srv.Events.List(calID).ShowDeleted(false).
 		SingleEvents(true).TimeMin(t).MaxResults(10).OrderBy("startTime").Do()
 	if err != nil {
 		log.Fatalf("Unable to retrieve next ten of the user's events. %v", err)
 	}
 
-	fmt.Println("Upcoming events:")
 	if len(events.Items) > 0 {
+		fmt.Println("Upcoming events:")
 		for _, i := range events.Items {
 			var when string
 			// If the DateTime is an empty string the Event is an all-day Event.
@@ -448,13 +429,13 @@ func main() {
 
 		switch id {
 		case "add":
-			add(srv)
+			add(srv, calID)
 		case "remove":
-			remove(srv)
+			remove(srv, calID)
 		case "edit":
-			edit(srv)
+			edit(srv, calID)
 		case "view":
-			view(srv)
+			view(srv, calID)
 		default:
 			os.Exit(0)
 		}
