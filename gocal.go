@@ -262,7 +262,7 @@ func remove(srv *calendar.Service, calID string) {
 func edit(srv *calendar.Service, calID string) {
 	var err error
 	action := func(srv *calendar.Service, calID string, sel *calendar.Event) {
-		editMenu := climenu.NewButtonMenu("", "Choose option to edit")
+		editMenu := climenu.NewCheckboxMenu("", "Choose options to edit", "OK", "Cancel")
 
 		idList := []string{
 			"summary",
@@ -290,63 +290,65 @@ func edit(srv *calendar.Service, calID string) {
 		editMenu.AddMenuItem("Time zone   | "+sel.Start.TimeZone, idList[5])
 		editMenu.AddMenuItem("Visibility  | "+sel.Visibility, idList[6])
 		editMenu.AddMenuItem("Status      | "+sel.Status, idList[7])
-		editMenu.AddMenuItem("Cancel", "cancel")
-		choice, _ := editMenu.Run()
+		choices, _ := editMenu.Run()
 
-		switch choice {
-		case "summary":
-			sel.Summary = climenu.GetText("Enter new Summary", "")
-		case "loc":
-			sel.Location = climenu.GetText("Enter new Location", "")
-		case "desc":
-			sel.Description = climenu.GetText("Enter new Description", "")
-		case "start":
-			if sel.Start, err = getDateTime(sel.Start.TimeZone); err != nil {
-				fmt.Println("An error ocurred. Event edit cancelled.")
-			}
-		case "end":
-			if sel.End, err = getDateTime(sel.End.TimeZone); err != nil {
-				fmt.Println("An error ocurred. Event edit cancelled.")
-			}
-		case "zone":
-			var cal *calendar.Calendar
-			if cal, err = srv.Calendars.Get(calID).Do(); err != nil {
-				log.Fatalf("error while fetching calendar: %v\n", err)
-			}
-			timeZone := climenu.GetText("Enter event time zone", cal.TimeZone)
-			sel.Start.TimeZone = timeZone
-			sel.End.TimeZone = timeZone
-		case "visibility":
-			m := climenu.NewButtonMenu("Current: "+sel.Visibility, "Choose option")
-			m.AddMenuItem("Default", "default")
-			m.AddMenuItem("Public (viewable to all readers)", "public")
-			m.AddMenuItem("Private (viewable to attendees)", "private")
-			m.AddMenuItem("Cancel", "")
-			var choice string
-			var esc bool
-			choice, esc = m.Run()
-			if esc || choice == "" {
-				fmt.Println("No change made.")
+		for _, choice := range choices {
+			fmt.Println(choice)
+			switch choice {
+			case "summary":
+				sel.Summary = climenu.GetText("Enter new Summary", "")
+			case "loc":
+				sel.Location = climenu.GetText("Enter new Location", "")
+			case "desc":
+				sel.Description = climenu.GetText("Enter new Description", "")
+			case "start":
+				if sel.Start, err = getDateTime(sel.Start.TimeZone); err != nil {
+					fmt.Println("An error ocurred. Event edit cancelled.")
+				}
+			case "end":
+				if sel.End, err = getDateTime(sel.End.TimeZone); err != nil {
+					fmt.Println("An error ocurred. Event edit cancelled.")
+				}
+			case "zone":
+				var cal *calendar.Calendar
+				if cal, err = srv.Calendars.Get(calID).Do(); err != nil {
+					log.Fatalf("error while fetching calendar: %v\n", err)
+				}
+				timeZone := climenu.GetText("Enter new event time zone", cal.TimeZone)
+				sel.Start.TimeZone = timeZone
+				sel.End.TimeZone = timeZone
+			case "visibility":
+				m := climenu.NewButtonMenu("Current: "+sel.Visibility, "Choose option")
+				m.AddMenuItem("Default", "default")
+				m.AddMenuItem("Public (viewable to all readers)", "public")
+				m.AddMenuItem("Private (viewable to attendees)", "private")
+				m.AddMenuItem("Cancel", "")
+				var choice string
+				var esc bool
+				choice, esc = m.Run()
+				if esc || choice == "" {
+					fmt.Println("No change made.")
+					return
+				}
+				sel.Visibility = choice
+			case "status":
+				m := climenu.NewButtonMenu("Current: "+sel.Status, "Choose option")
+				m.AddMenuItem("Confirmed", "confirmed")
+				m.AddMenuItem("Tentative (tentatively confirmed)", "tentative")
+				m.AddMenuItem("Cancelled (i.e. deleted)", "cancelled")
+				m.AddMenuItem("Cancel", "")
+				var choice string
+				var esc bool
+				choice, esc = m.Run()
+				if esc || choice == "" {
+					fmt.Println("No change made.")
+					return
+				}
+				sel.Status = choice
+			default:
+				fmt.Println("No changes made.")
 				return
 			}
-			sel.Visibility = choice
-		case "status":
-			m := climenu.NewButtonMenu("Current: "+sel.Status, "Choose option")
-			m.AddMenuItem("Confirmed", "confirmed")
-			m.AddMenuItem("Tentative (tentatively confirmed)", "tentative")
-			m.AddMenuItem("Cancelled (i.e. deleted)", "cancelled")
-			m.AddMenuItem("Cancel", "")
-			var choice string
-			var esc bool
-			choice, esc = m.Run()
-			if esc || choice == "" {
-				fmt.Println("No change made.")
-				return
-			}
-			sel.Status = choice
-		default:
-			fmt.Println("No changes made.")
-			return
 		}
 		var event *calendar.Event
 		if event, err = srv.Events.Update(calID, sel.Id, sel).Do(); err != nil {
