@@ -271,6 +271,8 @@ func edit(srv *calendar.Service, calID string) {
 			"start",
 			"end",
 			"zone",
+			"visibility",
+			"status",
 		}
 		editMenu.AddMenuItem("Summary     | "+sel.Summary, idList[0])
 		editMenu.AddMenuItem("Location    | "+sel.Location, idList[1])
@@ -286,6 +288,8 @@ func edit(srv *calendar.Service, calID string) {
 			editMenu.AddMenuItem("End time    | "+sel.End.DateTime, idList[4])
 		}
 		editMenu.AddMenuItem("Time zone   | "+sel.Start.TimeZone, idList[5])
+		editMenu.AddMenuItem("Visibility  | "+sel.Visibility, idList[6])
+		editMenu.AddMenuItem("Status      | "+sel.Status, idList[7])
 		editMenu.AddMenuItem("Cancel", "cancel")
 		choice, _ := editMenu.Run()
 
@@ -312,6 +316,34 @@ func edit(srv *calendar.Service, calID string) {
 			timeZone := climenu.GetText("Enter event time zone", cal.TimeZone)
 			sel.Start.TimeZone = timeZone
 			sel.End.TimeZone = timeZone
+		case "visibility":
+			m := climenu.NewButtonMenu("Current: "+sel.Visibility, "Choose option")
+			m.AddMenuItem("Default", "default")
+			m.AddMenuItem("Public (viewable to all readers)", "public")
+			m.AddMenuItem("Private (viewable to attendees)", "private")
+			m.AddMenuItem("Cancel", "")
+			var choice string
+			var esc bool
+			choice, esc = m.Run()
+			if esc || choice == "" {
+				fmt.Println("No change made.")
+				return
+			}
+			sel.Visibility = choice
+		case "status":
+			m := climenu.NewButtonMenu("Current: "+sel.Status, "Choose option")
+			m.AddMenuItem("Confirmed", "confirmed")
+			m.AddMenuItem("Tentative (tentatively confirmed)", "tentative")
+			m.AddMenuItem("Cancelled (i.e. deleted)", "cancelled")
+			m.AddMenuItem("Cancel", "")
+			var choice string
+			var esc bool
+			choice, esc = m.Run()
+			if esc || choice == "" {
+				fmt.Println("No change made.")
+				return
+			}
+			sel.Status = choice
 		default:
 			fmt.Println("No changes made.")
 			return
