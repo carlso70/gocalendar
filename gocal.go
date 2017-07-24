@@ -210,7 +210,7 @@ func add(srv *calendar.Service, calID string) {
 	calEvent.Location = climenu.GetText("Enter event location", "")
 	calEvent.Description = climenu.GetText("Enter event description", "")
 	var cal *calendar.Calendar
-	if cal, err = srv.Calendars.Get(calID).Do(); err == nil {
+	if cal, err = srv.Calendars.Get(calID).Do(); err != nil {
 		log.Fatalf("error while fetching calendar: %v\n", err)
 	}
 	timeZone := climenu.GetText("Enter event time zone", cal.TimeZone)
@@ -306,7 +306,7 @@ func edit(srv *calendar.Service, calID string) {
 			}
 		case "zone":
 			var cal *calendar.Calendar
-			if cal, err = srv.Calendars.Get(calID).Do(); err == nil {
+			if cal, err = srv.Calendars.Get(calID).Do(); err != nil {
 				log.Fatalf("error while fetching calendar: %v\n", err)
 			}
 			timeZone := climenu.GetText("Enter event time zone", cal.TimeZone)
