@@ -37,7 +37,7 @@ At the moment gocalendar requires permission, a web link will show, at which poi
 
 The program should continue seamlessly after permissions are set.
 
-## Controls
+### Controls
 
 Navigate the command-line-based interface using the up and down arrow keys and enter to proceed.
 
@@ -45,7 +45,7 @@ Proceed through text prompts with enter (leave blank for default option in brack
 
 For the bullet-style checkbox prompts, use spacebar to select however many options you would like and hit enter to proceed.
 
-## Available actions
+### Available actions
 
 From the root menu you can _add_, _delete_, _edit_, _view_, and _exit_.
 
