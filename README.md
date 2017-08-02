@@ -37,6 +37,8 @@ At the moment gocalendar requires permission, a web link will show, at which poi
 
 The program should continue seamlessly after permissions are set.
 
+[![asciicast](https://asciinema.org/a/131752.png)](https://asciinema.org/a/131752?autoplay=1&speed=2)
+
 ### Controls
 
 Navigate the command-line-based interface using the up and down arrow keys and enter to proceed.
