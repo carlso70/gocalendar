@@ -15,12 +15,6 @@ We felt compelled to implement a command-line interface of Google Calendar in or
 ### Prerequisites
 Requires Go 1.5+ to be installed. This can usually be done through your package manager. See [official documentation](https://golang.org/doc/install) for more information.
 
-In order to use the commands, gocalendar will need to be given permission to manage your Google Calendar.
-
-At the moment gocalendar requires permission, a web link will show, at which there is a prompt for permission verification. After verification, a code appears that needs to be pasted back into the program.
-
-The program should continue seamlessly after permissions are set.
-
 ### Package Install
 If `$GOPATH` is set:
 
@@ -29,6 +23,41 @@ go get github.com/carlso70/gocalendar
 ```
 
 Also, make sure `$PATH` contains `$GOPATH/bin` in order to call the program from outside `$GOPATH/bin`.
+
+## Usage
+
+To run the program, run
+```bash
+gocalendar
+```
+
+In order to use Google's calendar API, gocalendar will need to be given permission to manage your Google Calendar.
+
+At the moment gocalendar requires permission, a web link will show, at which point there is a prompt for permission verification. After verification, a code appears that needs to be pasted back into the program.
+
+The program should continue seamlessly after permissions are set.
+
+## Controls
+
+Navigate the command-line-based interface using the up and down arrow keys and enter to proceed.
+
+Proceed through text prompts with enter (leave blank for default option in brackets).
+
+For the bullet-style checkbox prompts, use spacebar to select however many options you would like and hit enter to proceed.
+
+## Available actions
+
+From the root menu you can _add_, _delete_, _edit_, _view_, and _exit_.
+
+Event properties that can be changed: _summary_, _location_, _description_, _time zone_, _begin time_, and _end time_, 
+
+The following describes each action:
+
+- _add:_ Create a new event, and prompt for event properties.
+- _delete:_ Search for events, and prompt the deletion of the selected event.
+- _edit:_ Search for events, and give a list of properties to edit. Prompt for each property, and update the event in bulk.
+- _view:_ Search for events, and display information about the selected event.
+- _exit:_ Exit the application.
 
 ## API Reference
 
