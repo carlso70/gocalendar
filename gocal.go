@@ -137,6 +137,10 @@ func listSeek(srv *calendar.Service, calID string,
 			SingleEvents(true)
 		events, _ := apiCall.Q(query).Do()
 		resultMenu := climenu.NewButtonMenu("", "Choose a result")
+		if len(events.Items) == 0 && pTok == iniTok {
+			fmt.Println("Failed to find events.")
+			return
+		}
 		for _, foundEvent := range events.Items {
 			if foundEvent.Summary != "" {
 				resultMenu.AddMenuItem(foundEvent.Summary, foundEvent.Id)
@@ -148,8 +152,7 @@ func listSeek(srv *calendar.Service, calID string,
 		}
 		if pTok != events.NextPageToken && events.NextPageToken != iniTok {
 			resultMenu.AddMenuItem("Next page", "nextPage")
-		} else if events.NextPageToken != pTok && events.NextPageToken == iniTok &&
-			len(events.Items) > 0 {
+		} else if events.NextPageToken != pTok && events.NextPageToken == iniTok {
 			resultMenu.AddMenuItem("Reset page", "nextPage")
 		}
 		option, esc := resultMenu.Run()
