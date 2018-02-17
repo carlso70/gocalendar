@@ -14,7 +14,7 @@ import (
 
 	"github.com/buger/goterm"
 	calUtil "github.com/carlso70/gocalendar/calendarutils"
-	"github.com/paulrademacher/climenu"
+	"github.com/kroppt/climenu"
 	"golang.org/x/net/context"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
